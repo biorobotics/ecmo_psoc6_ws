@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "bq34z100.h": "c"
+        "bq34z100.h": "c",
+        "project.h": "c"
     }
 }

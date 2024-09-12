@@ -1,13 +1,23 @@
+/**
+ * Biorobotics Lab Project 4.2 Fall 2024
+ * @file bq34z100.h
+ * @brief header file for bq34z100EVM / bq34z100G1 BMS chip driver
+ *
+ * @author: Zhaonan Shi <zhaonans> 
+ * @author: Haoran Zheng <hzheng5>
+*/
+
 #ifndef BQ34Z100_H
 #define BQ34Z100_H
 
+/*Include Files*/
 #include <stdint.h>
 #include <math.h>
 
 /**
  * Definitions for the I2C address and other constants
  */
-#define BQ34Z100 0xAA // or 0xAB or 0x55
+#define BQ34Z100 0x55 
 
 #define DESIGNCAP 1400
 #define DESIGNENERGY 5180
@@ -53,6 +63,10 @@ typedef enum {
     COMMAND_BLOCKDATACONTROL = 0x61
 } Command_t;
 
+
+/**
+ * Registers for bq34z100.
+ */
 typedef enum {
     CONTROL_CONTROL_STATUS = 0x0000,
     CONTROL_DEVICE_TYPE = 0x0001,
@@ -79,7 +93,7 @@ typedef enum {
 } Control_t;
 
 /**
- * Struct for handling BQ34Z100 device operations.
+ * Struct for BQ34Z100 flash.
  */
 typedef struct {
     uint8_t flashbytes[32];
@@ -100,14 +114,9 @@ uint16_t readControlCommand(BQ34Z100_t *device, Control_t control);
 void write(BQ34Z100_t *device, Command_t command, uint8_t cmd);
 void write_two_bytes(BQ34Z100_t *device, Command_t command, uint8_t cmd1, uint8_t cmd2);
 uint32_t read(BQ34Z100_t *device, Command_t command, uint8_t length);
-uint8_t calcChecksum(uint8_t *flashbytes);
 
-void BQ34Z100_Init(BQ34Z100_t *device, uint32_t i2c_bus, uint32_t frequency);
+
 uint16_t BQ34Z100_GetStatus(BQ34Z100_t *device);
-void BQ34Z100_EnableCal(BQ34Z100_t *device);
-void BQ34Z100_EnterCal(BQ34Z100_t *device);
-void BQ34Z100_ExitCal(BQ34Z100_t *device);
-void BQ34Z100_ITEnable(BQ34Z100_t *device);
 uint8_t BQ34Z100_GetSOC(BQ34Z100_t *device);
 uint16_t BQ34Z100_GetError(BQ34Z100_t *device);
 uint16_t BQ34Z100_GetRemaining(BQ34Z100_t *device);
@@ -118,6 +127,21 @@ uint16_t BQ34Z100_GetChemID(BQ34Z100_t *device);
 uint16_t BQ34Z100_GetStateOfHealth(BQ34Z100_t *device);
 int BQ34Z100_GetSerial(BQ34Z100_t *device);
 void BQ34Z100_Reset(BQ34Z100_t *device);
+uint16_t BQ34Z100_ReadDeviceType(BQ34Z100_t *device);
+uint16_t BQ34Z100_ReadFWVersion(BQ34Z100_t *device);
+uint16_t BQ34Z100_ReadHWVersion(BQ34Z100_t *device);
+
+/*  
+    Following functions are unused based on our requirments, 
+    Some of the configurations and calibration is achieved by EV2400
+    comment the following functions to reduce the code size,
+    if needed, uncomment the functions and use them.
+*/
+/*
+void BQ34Z100_EnableCal(BQ34Z100_t *device);
+void BQ34Z100_EnterCal(BQ34Z100_t *device);
+void BQ34Z100_ExitCal(BQ34Z100_t *device);
+void BQ34Z100_ITEnable(BQ34Z100_t *device);
 void BQ34Z100_Unseal(BQ34Z100_t *device);
 void BQ34Z100_Seal(BQ34Z100_t *device);
 void BQ34Z100_ChangePage(BQ34Z100_t *device, char subclass, uint16_t offset);
@@ -133,12 +157,12 @@ uint16_t BQ34Z100_CalibrateVoltage(BQ34Z100_t *device, uint16_t currentVoltage);
 void BQ34Z100_ResetVoltageDivider(BQ34Z100_t *device);
 void BQ34Z100_CalibrateShunt(BQ34Z100_t *device, int16_t calCurrent);
 void BQ34Z100_SetSenseResistor(BQ34Z100_t *device);
-uint16_t BQ34Z100_ReadDeviceType(BQ34Z100_t *device);
-uint16_t BQ34Z100_ReadFWVersion(BQ34Z100_t *device);
-uint16_t BQ34Z100_ReadHWVersion(BQ34Z100_t *device);
+uint8_t calcChecksum(uint8_t *flashbytes);
+
 uint32_t floatToXemics(float value);
 float xemicsToFloat(uint32_t xemics);
 uint8_t BQ34Z100_GetUpdateStatus(BQ34Z100_t *device);
 BQ34Z100_Flags_t BQ34Z100_GetFlags(BQ34Z100_t *device);
+*/
 
 #endif // BQ34Z100_H

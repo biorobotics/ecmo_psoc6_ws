@@ -1,23 +1,54 @@
-#include "project.h"  // Include global project header
-#include "bq34z100.h" // Include bq34z100 header
-#include <inttypes.h>  // Include C++-style integer types
-#include <stdio.h>  // Include standard I/O functions
+/**
+ * Biorobotics Lab Project 4.2 Fall 2024
+ * @file bq34z100.c
+ * @brief Source code for bq34z100EVM / bq34z100G1 BMS chip driver
+ *
+ * @author: Zhaonan Shi <zhaonans> 
+ * @author: Haoran Zheng <hzheng5>
+*/
 
-// Initialization function
-// void bq34z100_init() {
-//     I2C_Start(); // Ensure your I2C hardware is configured and named appropriately
-// }
+/*include files*/
+#include "project.h" 
+#include "bq34z100.h" 
+#include <inttypes.h>  
+#include <stdio.h>  
 
 
+
+/* communication functions */
+
+/**
+ * @brief  send control command to the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  control - The control command to send
+ *
+ */
 void sendControlCommand(BQ34Z100_t *device, Control_t control) {
     write_two_bytes(device, COMMAND_CONTROL, control & 0xFF, control >> 8);
 }
 
+/**
+ * @brief  read the register value
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  control - The control command to send
+ *
+ * @return read value
+ */
 uint16_t readControlCommand(BQ34Z100_t *device, Control_t control) {
     sendControlCommand(device, control);
     return read(device, COMMAND_CONTROL, 2);
 }
 
+/**
+ * @brief  write the register value
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  command -specific command
+ * @param  cmd - value to send
+ *
+ */
 void write(BQ34Z100_t *device, Command_t command, uint8_t cmd) {
     (void) device;
     I2C_MasterSendStart(BQ34Z100, I2C_WRITE_XFER_MODE);
@@ -26,6 +57,15 @@ void write(BQ34Z100_t *device, Command_t command, uint8_t cmd) {
     I2C_MasterSendStop();
 }
 
+/**
+ * @brief  write the register value with two bytes, in case of 16-bit command
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  command -specific command
+ * @param  cmd1 - value to send
+ * @param  cmd2 - value to send
+ *
+ */
 void write_two_bytes(BQ34Z100_t *device, Command_t command, uint8_t cmd1, uint8_t cmd2) {
     (void) device;
     I2C_MasterSendStart(BQ34Z100, I2C_WRITE_XFER_MODE);
@@ -35,6 +75,15 @@ void write_two_bytes(BQ34Z100_t *device, Command_t command, uint8_t cmd1, uint8_
     I2C_MasterSendStop();
 }
 
+/**
+ * @brief  read the value into 32-bit integer
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  command -specific command
+ * @param  length - length of the data to read
+ *
+ * @return read value
+ */
 uint32_t read(BQ34Z100_t *device, Command_t command, uint8_t length) {
     (void) device;
     uint32_t result = 0;
@@ -52,117 +101,280 @@ uint32_t read(BQ34Z100_t *device, Command_t command, uint8_t length) {
     return result;
 }
 
-void BQ34Z100_EnableCal(BQ34Z100_t *device) {
-    sendControlCommand(device, CONTROL_CAL_ENABLE);
-}
 
-// Enter Calibration Mode
-void BQ34Z100_EnterCal(BQ34Z100_t *device) {
-    sendControlCommand(device, CONTROL_ENTER_CAL);
-}
+/*Main functions*/
 
-// Exit Calibration Mode
-void BQ34Z100_ExitCal(BQ34Z100_t *device) {
-    sendControlCommand(device, CONTROL_EXIT_CAL);
-}
-
-// Enable Impedance Track Algorithm
-void BQ34Z100_ITEnable(BQ34Z100_t *device) {
-    sendControlCommand(device, CONTROL_IT_ENABLE);
-}
-
-// Get Device Status
+/**
+ * @brief  get the status of the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return status value
+ */
 uint16_t BQ34Z100_GetStatus(BQ34Z100_t *device) {
     return readControlCommand(device, CONTROL_CONTROL_STATUS);
 }
 
-// Get battery Chemistry ID
+/**
+ * @brief  get the chemical ID of the battery
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return chemical ID
+ */
 uint16_t BQ34Z100_GetChemID(BQ34Z100_t *device) {
     return readControlCommand(device, CONTROL_CHEM_ID);
 }
 
-// Get State of Health of the battery
+/**
+ * @brief  get the state of health of the battery
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return state of health
+ */
 uint16_t BQ34Z100_GetStateOfHealth(BQ34Z100_t *device) {
     return read(device, COMMAND_STATEOFHEALTH, 2);
 }
 
-// Get State of Charge
+/**
+ * @brief  get the state of charge of the battery
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return state of charge
+ */
 uint8_t BQ34Z100_GetSOC(BQ34Z100_t *device) {
     return (uint8_t)read(device, COMMAND_STATEOFCHARGE, 1);
 }
 
-// Get the maximum error of SOC calculation
+/**
+ * @brief  get the max error of the battery
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return max error
+ */
 uint16_t BQ34Z100_GetError(BQ34Z100_t *device) {
     return read(device, COMMAND_MAXERROR, 1);
 }
 
-// Get remaining capacity
+/**
+ * @brief  get the battery remaining capacity
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return remaining capacity
+ */
 uint16_t BQ34Z100_GetRemaining(BQ34Z100_t *device) {
     return read(device, COMMAND_REMAININGCAPACITY, 2);
 }
 
-// Get battery voltage
+/**
+ * @brief  get the battery voltage
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return voltage
+ */
 uint16_t BQ34Z100_GetVoltage(BQ34Z100_t *device) {
     return read(device, COMMAND_VOLTAGE, 2);
 }
 
-// Get current flow through the device
+/**
+ * @brief  get the battery current flow
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return current
+ */
 int16_t BQ34Z100_GetCurrent(BQ34Z100_t *device) {
     int16_t result = read(device, COMMAND_CURRENT, 2);
     return result < 0 ? -result : result;  // Making sure the result is non-negative
 }
 
-// Get device internal temperature
+/**
+ * @brief  get the battery temperature
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return temperature
+ */
 double BQ34Z100_GetTemperature(BQ34Z100_t *device) {
     int16_t rawTemp = read(device, COMMAND_TEMPERATURE, 2);
     return (rawTemp / 10.0) - 273.15;  // Convert from deci-Kelvin to Celsius
 }
 
-// Get Serial Number of the device
+/**
+ * @brief  get the serial number
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return serial number
+ */
 int BQ34Z100_GetSerial(BQ34Z100_t *device) {
     return read(device, COMMAND_SERIALNUMBER, 2);
 }
 
-// Reset the device
+/**
+ * @brief  reset the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
 void BQ34Z100_Reset(BQ34Z100_t *device) {
     sendControlCommand(device, CONTROL_RESET);
     CyDelay(175);  // Wait for the device to reset properly
 }
 
-// Unseal the device to access protected registers
+/**
+ * @brief  Read the device type
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return device type
+ */
+uint16_t BQ34Z100_ReadDeviceType(BQ34Z100_t *device) {
+    return readControlCommand(device, CONTROL_DEVICE_TYPE);
+}
+
+/**
+ * @brief  Read the firmware version
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return firmware version
+ */
+uint16_t BQ34Z100_ReadFWVersion(BQ34Z100_t *device) {
+    return readControlCommand(device, CONTROL_FW_VERSION);
+}
+
+/**
+ * @brief  Read the hardware version
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return hardware version
+ */
+uint16_t BQ34Z100_ReadHWVersion(BQ34Z100_t *device) {
+    return readControlCommand(device, CONTROL_HW_VERSION);
+}
+
+
+/*Calibration functions and flash configurations*/
+/*  
+    Following functions are unused based on our requirments, 
+    Some of the configurations and calibration is achieved by EV2400
+    comment the following functions to reduce the code size,
+    if needed, uncomment the functions and use them.
+*/
+
+/**
+ * @brief  enable calibration mode
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
+void BQ34Z100_EnableCal(BQ34Z100_t *device) {
+    sendControlCommand(device, CONTROL_CAL_ENABLE);
+}
+*/
+
+/**
+ * @brief  enter calibration mode
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
+void BQ34Z100_EnterCal(BQ34Z100_t *device) {
+    sendControlCommand(device, CONTROL_ENTER_CAL);
+}
+*/
+
+/**
+ * @brief  exit calibration mode
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
+void BQ34Z100_ExitCal(BQ34Z100_t *device) {
+    sendControlCommand(device, CONTROL_EXIT_CAL);
+}
+*/
+
+/**
+ * @brief  enable Inpedance Track
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
+void BQ34Z100_ITEnable(BQ34Z100_t *device) {
+    sendControlCommand(device, CONTROL_IT_ENABLE);
+}
+*/
+
+/**
+ * @brief  unseal the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_Unseal(BQ34Z100_t *device) {
     sendControlCommand(device, CONTROL_UNSEAL_KEY1);
     sendControlCommand(device, CONTROL_UNSEAL_KEY2);
 }
+*/
 
-// Seal the device to protect registers
+/**
+ * @brief  seal the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_Seal(BQ34Z100_t *device) {
     sendControlCommand(device, CONTROL_SEALED);
 }
+*/
 
-
+/**
+ * @brief  change the page of the BQ34Z100 to access different registers
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  subclass - The subclass of the page
+ * @param  offset - The offset of the page
+ *
+ */
+/*
 void BQ34Z100_ChangePage(BQ34Z100_t *device, char subclass, uint16_t offset) {
-    // Delay function call, assuming CyDelay is available. Adjust as per actual delay function used.
     CyDelay(10); // Delay 10 milliseconds
 
-    // Enable block data flash control (single byte write)
     write(device, COMMAND_BLOCKDATACONTROL, 0x00);
     CyDelay(10); // Delay 10 milliseconds
 
-    // Use DataFlashClass() command to access the subclass
     write(device, COMMAND_DATAFLASHCLASS, subclass);
     device->currFlashPage = subclass;
     CyDelay(10); // Delay 10 milliseconds
 
     // Select the block offset location
-    // Blocks are 32 in size, so the offset is which block the data sits in
-    // Ex: 16 is block 0x00, 52 is block 0x01 (called "index" variable)
     device->currFlashBlockIndex = (uint8_t)(offset / 32);
     write(device, COMMAND_DATAFLASHBLOCK, device->currFlashBlockIndex);
     CyDelay(20); // Delay 20 milliseconds
 }
+*/
 
-
+/**
+ * @brief  update the checksum of the BQ34Z100 flash memory
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_UpdateChecksum(BQ34Z100_t *device) {
     uint8_t newChecksum = calcChecksum(device->flashbytes);
 
@@ -171,10 +383,17 @@ void BQ34Z100_UpdateChecksum(BQ34Z100_t *device) {
     printf("Writing new checksum for page %" PRIu8 " block %" PRIu8 ": 0x%" PRIx8 "\r\n",
            device->currFlashPage, device->currFlashBlockIndex, newChecksum);
 
-    CyDelay(50); // Wait for BQ34Z100 to process, may be totally overkill
+    CyDelay(50); // Wait for BQ34Z100 to process
 }
+*/
 
-
+/**
+ * @brief  read the flash memory of the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_ReadFlash(BQ34Z100_t *device) {
     char command = COMMAND_BLOCKDATA; // Command to read Data Flash
 
@@ -211,10 +430,17 @@ void BQ34Z100_ReadFlash(BQ34Z100_t *device) {
     printf("\r\n");
     printf("Checksum: 0x%" PRIx8 "\r\n", expectedChecksum);
 
-    CyDelay(10); // Wait to ensure I2C bus stability or BQ34Z100 processing; adjust as necessary
+    CyDelay(10); // Wait to ensure I2C bus stability or BQ34Z100 processing
 }
+*/
 
-
+/**
+ * @brief  write to the flash memory of the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_WriteFlash(BQ34Z100_t *device, uint8_t index, uint32_t value, int len) {
     // Ensure index is within the valid range
     if (index > 31) index %= 32;
@@ -237,13 +463,27 @@ void BQ34Z100_WriteFlash(BQ34Z100_t *device, uint8_t index, uint32_t value, int 
         write(device, COMMAND_BLOCKDATA + index + len - 1, device->flashbytes[index + len - 1]);
     }
 }
+*/
 
-// Function to retrieve the pointer to the flashbytes array
+/**
+ * @brief  retrieve the pointer to the flashbytes array
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @return pointer to the flashbytes array
+ */
+/*
 uint8_t* BQ34Z100_GetFlashBytes(BQ34Z100_t *device) {
     return device->flashbytes;
 }
+*/
 
-// Change to Page 48 and update design capacity and energy
+/**
+ * @brief  Change to Page 48 and update design capacity and energy
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_ChangePage48(BQ34Z100_t *device) {
     BQ34Z100_ChangePage(device, 48, 0);
     BQ34Z100_ReadFlash(device);
@@ -252,8 +492,15 @@ void BQ34Z100_ChangePage48(BQ34Z100_t *device) {
     BQ34Z100_UpdateChecksum(device);
     CyDelay(300);  // Delay for 300ms for settings to take effect
 }
+*/
 
-// Change to Page 64 and modify configuration settings
+/**
+ * @brief  Change to Page 64 and modify configuration settings
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_ChangePage64(BQ34Z100_t *device) {
     BQ34Z100_ChangePage(device, 64, 0);
     BQ34Z100_ReadFlash(device);
@@ -262,9 +509,9 @@ void BQ34Z100_ChangePage64(BQ34Z100_t *device) {
     uint8_t packConfig_low = device->flashbytes[1];
 
     if (VOLTSEL) {
-        packConfig_high |= 0x08;  // Enable external voltage divider
+        packConfig_high |= 0x08;
     }
-    packConfig_high |= 0x40;  // Enable calibration
+    packConfig_high |= 0x40;  
 
     packConfig_low &= ~(1);
     packConfig_low |= USE_EXTERNAL_THERMISTOR;
@@ -273,16 +520,23 @@ void BQ34Z100_ChangePage64(BQ34Z100_t *device) {
     BQ34Z100_WriteFlash(device, 1, packConfig_low, 1);
 
     uint8_t packConfigB = device->flashbytes[2];
-    packConfigB &= ~1;  // Disable fast convergence
+    packConfigB &= ~1;  
     BQ34Z100_WriteFlash(device, 2, packConfigB, 1);
 
     BQ34Z100_WriteFlash(device, 4, LEDCONFIG, 1);
-    BQ34Z100_WriteFlash(device, 7, 0x04, 1);  // Set number of cells
+    BQ34Z100_WriteFlash(device, 7, 0x04, 1);  
     BQ34Z100_UpdateChecksum(device);
     CyDelay(300);
 }
+*/
 
-// Change to Page 80 and adjust load configuration
+/**
+ * @brief  Change to Page 80 and adjust load configuration
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_ChangePage80(BQ34Z100_t *device) {
     BQ34Z100_ChangePage(device, 80, 0);
     BQ34Z100_ReadFlash(device);
@@ -300,8 +554,15 @@ void BQ34Z100_ChangePage80(BQ34Z100_t *device) {
     BQ34Z100_UpdateChecksum(device);
     CyDelay(300);
 }
+*/
 
-// Change to Page 82 and update QMax
+/**
+ * @brief  Change to Page 82 and update QMax
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_ChangePage82(BQ34Z100_t *device) {
     BQ34Z100_ChangePage(device, 82, 0);
     BQ34Z100_ReadFlash(device);
@@ -309,7 +570,17 @@ void BQ34Z100_ChangePage82(BQ34Z100_t *device) {
     BQ34Z100_UpdateChecksum(device);
     CyDelay(300);
 }
+*/
 
+/**
+ * @brief  Calibrate the voltage divider
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  currentVoltage - The current voltage
+ *
+ * @return the new voltage divider value
+ */
+/*
 uint16_t BQ34Z100_CalibrateVoltage(BQ34Z100_t *device, uint16_t currentVoltage) {
     BQ34Z100_ChangePage(device, 104, 0);
     BQ34Z100_ReadFlash(device);
@@ -332,7 +603,6 @@ uint16_t BQ34Z100_CalibrateVoltage(BQ34Z100_t *device, uint16_t currentVoltage) 
     BQ34Z100_UpdateChecksum(device);
     CyDelay(10); // Delay for 10ms
 
-    // Also change the "Flash Update OK Cell Volt" as the datasheet says to:
     BQ34Z100_ChangePage(device, 68, 0);
     BQ34Z100_ReadFlash(device);
 
@@ -352,7 +622,15 @@ uint16_t BQ34Z100_CalibrateVoltage(BQ34Z100_t *device, uint16_t currentVoltage) 
     printf("READ VOLTAGE (mv): %f\r\n", readVoltage);
     return writeSetting;
 }
+*/
 
+/**
+ * @brief  Reset the voltage divider
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_ResetVoltageDivider(BQ34Z100_t *device) {
     BQ34Z100_ChangePage(device, 104, 0); // Change to page 104, offset 0
     BQ34Z100_ReadFlash(device); // Read current settings from flash
@@ -360,7 +638,16 @@ void BQ34Z100_ResetVoltageDivider(BQ34Z100_t *device) {
     BQ34Z100_UpdateChecksum(device); // Update checksum to ensure data integrity
     CyDelay(300); // Wait for 300ms for settings to take effect
 }
+*/
 
+/**
+ * @brief  Calibrate the shunt resistor
+ *
+ * @param  device - The BQ34Z100 device struct
+ * @param  calCurrent - The calibration current
+ *
+ */
+/*
 void BQ34Z100_CalibrateShunt(BQ34Z100_t *device, int16_t calCurrent) {
     if (calCurrent < 0) calCurrent = -calCurrent;
 
@@ -394,7 +681,15 @@ void BQ34Z100_CalibrateShunt(BQ34Z100_t *device, int16_t calCurrent) {
     BQ34Z100_UpdateChecksum(device);
     CyDelay(300); // Delay for 300ms for settings to take effect
 }
+*/
 
+/**
+ * @brief  Set the sense resistor, for resetting the shunt resistor
+ *
+ * @param  device - The BQ34Z100 device struct
+ *
+ */
+/*
 void BQ34Z100_SetSenseResistor(BQ34Z100_t *device) {
     BQ34Z100_ChangePage(device, 104, 0);
     BQ34Z100_ReadFlash(device);
@@ -411,27 +706,24 @@ void BQ34Z100_SetSenseResistor(BQ34Z100_t *device) {
     BQ34Z100_UpdateChecksum(device);
     CyDelay(300); // Wait for changes to take effect
 }
-
-uint16_t BQ34Z100_ReadDeviceType(BQ34Z100_t *device) {
-    return readControlCommand(device, CONTROL_DEVICE_TYPE);
-}
-
-uint16_t BQ34Z100_ReadFWVersion(BQ34Z100_t *device) {
-    return readControlCommand(device, CONTROL_FW_VERSION);
-}
-
-uint16_t BQ34Z100_ReadHWVersion(BQ34Z100_t *device) {
-    return readControlCommand(device, CONTROL_HW_VERSION);
-}
+*/
 
 
-// Convert float to Xemics floating point format
+
+/**
+ * @brief  Convert float to Xemics floating point format
+ *
+ * @param  value - The float value to convert
+ * 
+ * @return Xemics floating point format
+ */
+/*
 uint32_t floatToXemics(float value) {
     int iByte1, iByte2, iByte3, iByte4, iExp;
     bool bNegative = false;
     float fMantissa;
     
-    // Handle zero input gracefully
+    // Handle zero input
     if (value == 0) value = 0.00001F;
 
     if (value < 0) {
@@ -461,8 +753,16 @@ uint32_t floatToXemics(float value) {
 
     return (uint32_t)(iByte1 << 24 | iByte2 << 16 | iByte3 << 8 | iByte4);
 }
+*/
 
-// Convert Xemics floating point format to float
+/**
+ * @brief  Convert Xemics floating point format to float
+ *
+ * @param  xemics - The Xemics floating point format
+ * 
+ * @return float value
+ */
+/*
 float xemicsToFloat(uint32_t xemics) {
     bool bIsPositive = true;
     float fExponent, fResult;
@@ -488,13 +788,31 @@ float xemicsToFloat(uint32_t xemics) {
     // Apply sign
     return bIsPositive ? fResult : -fResult;
 }
+*/
 
+/**
+ * @brief  Get the current calibration status
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return calibration status
+ */
+/*
 uint8_t BQ34Z100_GetUpdateStatus(BQ34Z100_t *device) {
     BQ34Z100_ChangePage(device, 82, 0); // Change to page 82, offset 0
     BQ34Z100_ReadFlash(device); // Read the data from flash into the buffer
     return device->flashbytes[4]; // Return the status byte from the flash memory buffer
 }
+*/
 
+/**
+ * @brief  Get the flags of the BQ34Z100
+ *
+ * @param  device - The BQ34Z100 device struct
+ * 
+ * @return flags
+ */
+/*
 BQ34Z100_Flags_t BQ34Z100_GetFlags(BQ34Z100_t *device) {
     uint16_t flags = read(device, COMMAND_FLAGS, 2);
     uint16_t flagsB = read(device, COMMAND_FLAGSB, 2);
@@ -505,7 +823,16 @@ BQ34Z100_Flags_t BQ34Z100_GetFlags(BQ34Z100_t *device) {
 
     return result;
 }
+*/
 
+/**
+ * @brief  Calculate the checksum of the flash memory
+ *
+ * @param  flashbytes - The flash memory bytes
+ * 
+ * @return checksum
+ */
+/*
 uint8_t calcChecksum(uint8_t *flashbytes) {
     uint8_t sum = 0;
     for (int i = 0; i < 32; i++) {
@@ -513,7 +840,7 @@ uint8_t calcChecksum(uint8_t *flashbytes) {
     }
     return 255 - sum;
 }
-
+*/
 
 
 

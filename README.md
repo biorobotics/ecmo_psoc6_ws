@@ -43,6 +43,11 @@ Timing measurements:
     - Yellow - SCL (1.8V, 3.6V maximum)
     - Blue - GPIO0 (1.8V, 2.2V maximum), unused
     - Purple - GPIO1 (1.8V, 2.2V maximum), unused
+- [BQ34Z100EVM](https://www.ti.com/tool/BQ34Z100EVM)
+  - Establish common ground with PSoC
+  - I2C with PSoC 6
+- [Battery]
+- [EV2400(optional)](https://www.ti.com/tool/EV2400)
 
 ### PSoC Creator
 - In PSoC Creator, open the [workspace containing the PSoC base firmware project](ecmo_psoc6_ws.cywrk)
@@ -60,6 +65,8 @@ Timing measurements:
 Embedded team: Steven Zhang <sijinz@andrew.cmu.edu>, Ching-Han Chou <chingha2@andrew.cmu.edu>, Haoran Zheng <hzheng5@andrew.cmu.edu>, Zhaonan Shi <zhaonans@andrew.cmu.edu>, Thomas Li <tyli@andrew.cmu.edu>.
 
 Device driver for optical sensor (adpd1080) ported over from Arduino script written by Osama Elgabori <oelgabor@andrew.cmu.edu>.
+
+BQ34z100 driver taking reference from Jamie Smith at [BQ34Z100G1-Driver](https://github.com/USCRPL/BQ34Z100G1-Driver/tree/master), with many modification to fit in our project.
 
 This repo forked from [Steven Zhang's personal repo](https://github.com/zsj-28/PSoC6_UDB_I2C_Master). 
 
