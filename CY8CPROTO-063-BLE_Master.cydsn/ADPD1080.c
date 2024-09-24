@@ -419,8 +419,8 @@ void turbidity_Init(void) {
     ADPD1080_WriteReg(ADPD1080_SLOTB_TIA_CFG, 0x1C36);
     
     // Set ADC offset
-    struct ADPD1080_ChannelOffset stOffsetA  = {0x2045,0,0,0};
-    struct ADPD1080_ChannelOffset stOffsetB  = {0x2045,0,0,0};    
+    struct ADPD1080_ChannelOffset stOffsetA  = {0x2014,0,0,0};
+    struct ADPD1080_ChannelOffset stOffsetB  = {0x2014,0,0,0};    
     ADPD1080_SetOffset(SLOTA, stOffsetA);
     ADPD1080_SetOffset(SLOTB, stOffsetB);
     // TODO: disable AFE channels 2-4 to save power - see datasheet pg. 41
@@ -437,6 +437,9 @@ void turbidity_Init(void) {
     ADPD1080_WriteReg(ADPD1080_ILED1_COARSE, 0x1031);  // LED configuration
     ADPD1080_WriteReg(ADPD1080_ILED2_COARSE, 0x1034);  // LED configuration
     ADPD1080_WriteReg(ADPD1080_ILED_FINE, 0x67DF);  // LED fine
+    
+    // ADPD1080_DisableLed(SLOTA);
+    // ADPD1080_DisableLed(SLOTB);
 
     /* Commented code section NOT included in Osama's 9/13/24 ADPD script
     ADPD1080_Set32KCLK(true);            // Enable 32K clock
