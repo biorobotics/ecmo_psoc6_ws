@@ -26,10 +26,12 @@
       <Data key="485bfda3-4f9d-412b-bc9b-9cdbcde17f27/b7e8018e-1ef7-49c0-b5a5-61641a03e31c" value="UART_1_rx" />
       <Data key="0113321b-4a37-46f6-8407-2f8646c68756" value="ADC_CH0" />
       <Data key="1421286a-9264-443b-8c40-855a116a89f1" value="ADC_CH7" />
+      <Data key="27147740-358a-4e2d-83c8-9f021fb051af" value="Pin_1" />
       <Data key="a707f313-56c7-4e7c-8c97-ca4d22b2bb7f" value="DAC_out" />
       <Data key="a61270bc-07ec-447d-ac9e-34cfe85c30e9" value="Int_Debug" />
       <Data key="af8629ba-ac4c-423d-9ff5-21939cfe0e60/65f3af6c-759b-4ccb-8c66-5c95ba1f5f4f" value="UART_tx" />
       <Data key="af8629ba-ac4c-423d-9ff5-21939cfe0e60/b7e8018e-1ef7-49c0-b5a5-61641a03e31c" value="UART_rx" />
+      <Data key="b78a8bab-f71b-4e01-a09f-65b5ab525f6d" value="LED_RED" />
       <Data key="ba4d4955-0115-4df6-9fb0-e81346f58fe2" value="ADC_CH4" />
       <Data key="c268b1f3-4963-4b98-8f34-55813e07c8ed" value="SCL" />
       <Data key="f33aa665-cd07-4e22-a86e-569bbb5b0261" value="ADC_CH5" />
@@ -701,6 +703,11 @@
         <Data key="Port Format" value="9,3" />
       </Group>
     </Group>
+    <Group key="27147740-358a-4e2d-83c8-9f021fb051af">
+      <Group key="0">
+        <Data key="Port Format" value="6,3" />
+      </Group>
+    </Group>
     <Group key="a707f313-56c7-4e7c-8c97-ca4d22b2bb7f">
       <Group key="0">
         <Data key="Port Format" value="9,6" />
@@ -719,6 +726,11 @@
     <Group key="af8629ba-ac4c-423d-9ff5-21939cfe0e60/b7e8018e-1ef7-49c0-b5a5-61641a03e31c">
       <Group key="0">
         <Data key="Port Format" value="5,0" />
+      </Group>
+    </Group>
+    <Group key="b78a8bab-f71b-4e01-a09f-65b5ab525f6d">
+      <Group key="0">
+        <Data key="Port Format" value="6,3" />
       </Group>
     </Group>
     <Group key="ba4d4955-0115-4df6-9fb0-e81346f58fe2">

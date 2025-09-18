@@ -26,7 +26,7 @@
 
 // Maximum number of bytes in a packet
 #define MAX_PACKET_SIZE          255u
-
+#define LED_RED_0 P6_3
 /* Foreground-background shared variables */
 volatile bool dataReady = false;
 volatile int16_t ADCData[ADC_SAMPLES_PER_PACKET*ADC_NUM_CHANNELS];
@@ -167,14 +167,14 @@ CY_ISR (Timer_Int_Handler) {
     Timer_ClearInterrupt(CY_TCPWM_INT_ON_TC);
     
     // Read ADPD1080 data registers with data hold mechanism (6 ms)
-    if (turbidity_ReadDataNoInterrupt(ADPD_NUM_CHANNELS)) {
+    /*if (turbidity_ReadDataNoInterrupt(ADPD_NUM_CHANNELS)) {
         adpdDataA[timerCount] = au16DataSlotA[0];
         adpdDataB[timerCount] = au16DataSlotB[0];
     }
     else {
         adpdDataA[timerCount] = 0;
         adpdDataB[timerCount] = 0;
-    }
+    }*/
     
     // Increment timer count
     timerCount++;
@@ -210,15 +210,17 @@ CY_ISR (Timer_Int_Handler) {
  */
 int main(void) {
     // Variables for calculating oxygen saturation and hemoglobin concentration
+    /*
     uint16_t L680 ; // Time Slot A Channel 1 (680 nm laser)
     uint16_t L850 ; // Time Slot B Channel 1 (850 nm laser)
-
+    
     float32_t R;                 // Ratio of L680 to L850
     float32_t SO2;               // Oxygen saturation
     float32_t HBT;               // Hemoglobin concentration
     float32_t R_avg;             // Running average R
     float32_t SO2_avg;           // Running average SO2
     float32_t HBT_avg;           // Running average HBT
+    
 
     // Maintain running average
     uint16_t slotA_avg[SMOOTHED_SAMPLE_SIZE] = {0};
@@ -232,18 +234,18 @@ int main(void) {
     uint32_t sumB = 0;
     uint32_t lenA = sizeof(slotA_avg)/sizeof(uint16_t);
     uint32_t lenB = sizeof(slotB_avg)/sizeof(uint16_t);
-    
+    */
     // Store current size of sensor data UART packet and number of AES blocks
     uint8_t packetsize = 0, AESBlock_count = 0;
     
     // Initialize UART for debugging purposes
     UART_Start();
     
-    // Intialize UART_1 for data transmission to ESP32
+    // Intialize UART_1 for data transmission to Raspberry Pi
     UART_1_Start();
     
     // Initialize I2C for digital sensor communication
-    I2C_Start();
+    //I2C_Start();
     
     // Intialize ADC for receiving analog sensor data
     ADC_Start();
@@ -253,19 +255,20 @@ int main(void) {
     NVIC_EnableIRQ(Timer_Int_cfg.intrSrc);
     
     __enable_irq();  // Enable global interrupts
-
+    Cy_GPIO_Pin_FastInit(GPIO_PRT6, 3u, CY_GPIO_DM_STRONG, 1u, HSIOM_SEL_GPIO);
+    Cy_GPIO_Set(GPIO_PRT6, 3u);   // drive high -> LED OFF
     // Initialize and configure the ADPD1080 sensor
-    printf("Initializing ADPD1080 sensor...\r\n");
+    //printf("Initializing ADPD1080 sensor...\r\n");
 
-    while (!ADPD1080_Begin(ADPD1080_ADDRESS, 0)) {
+    /*while (!ADPD1080_Begin(ADPD1080_ADDRESS, 0)) {
         printf("error: ADPD1080 sensor initialization failed!\r\n");
         Cy_SysLib_Delay(5u); // wait 5 ms before retrying
-        // while (1); // Loop forever on failure
-    }
+        while (1); // Loop forever on failure
+    }*/
     
     // Initialize sensor registers
-    turbidity_Init();
-    printf("ADPD1080 sensor initialization successful.\r\n");
+    //turbidity_Init();
+    //printf("ADPD1080 sensor initialization successful.\r\n");
     
     /* Initialization of Crypto Driver */
 	while (Cy_Crypto_Init(&cryptoConfig, &cryptoScratch) != CY_CRYPTO_SUCCESS) {}
@@ -298,7 +301,7 @@ int main(void) {
             packetsize = 0, AESBlock_count = 0;
             
             // Process adpd1080 data
-            for (uint8_t i = 0; i < ADPD_SAMPLES_PER_PACKET; i++) {
+            /*for (uint8_t i = 0; i < ADPD_SAMPLES_PER_PACKET; i++) {
                 // Raw light intensity
                 L680 = adpdDataA[i];
                 L850 = adpdDataB[i];
@@ -356,7 +359,7 @@ int main(void) {
                 packetsize += sizeof(float32_t);
                 
                 printf("L680: %u, L850: %u, SO2: %f, SO2_avg: %f, HBT: %f\r\n", L680, L850, SO2, SO2_avg, HBT);
-            }
+            }*/
             
             // Process ADC data
             for (uint8_t i = 0; i < ADC_NUM_CHANNELS; i++) {
@@ -442,10 +445,12 @@ void wrap_data(uint8_t opcode, uint8_t* data, uint8_t length) {
     txBuffer[1] = length;
     memcpy(&txBuffer[2], data, length);
     txBuffer[2 + length] = calculateCRC8(opcode, length, data);
-    
+    Cy_GPIO_Set(GPIO_PRT6, 3u);   // drive high -> LED OFF
     status = UART_1_Transmit(txBuffer, 2 + length + 1);
+    
     if (status != CY_SCB_UART_SUCCESS) {
         // printf("\r\nerror: Tx status 0x%x\r\n", status);
+        Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
         Cy_SysLib_Delay(5u); // wait 5 ms to signal error
     }
     

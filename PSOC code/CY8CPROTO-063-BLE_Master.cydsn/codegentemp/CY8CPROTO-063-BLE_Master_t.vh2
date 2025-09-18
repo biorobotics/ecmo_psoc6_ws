@@ -1,5 +1,5 @@
--- Project:   C:\Users\thoma\Documents\PSoC Creator\ecmo\ecmo_psoc6_ws\PSOC code\CY8CPROTO-063-BLE_Master.cydsn\CY8CPROTO-063-BLE_Master.cyprj
--- Generated: 11/15/2024 14:58:23
+-- Project:   C:\Users\29928\OneDrive\Desktop\Sheep Study Git\ecmo_psoc6_ws\PSOC code\CY8CPROTO-063-BLE_Master.cydsn\CY8CPROTO-063-BLE_Master.cyprj
+-- Generated: 09/18/2025 14:03:26
 -- PSoC Creator  4.4
 
 ENTITY \CY8CPROTO-063-BLE_Master\ IS
@@ -11,7 +11,8 @@ ENTITY \CY8CPROTO-063-BLE_Master\ IS
         Int_Debug(0)_PAD : OUT std_ulogic;
         Debug(0)_PAD : OUT std_ulogic;
         \UART_1:tx(0)_PAD\ : OUT std_ulogic;
-        \UART_1:rx(0)_PAD\ : IN std_ulogic);
+        \UART_1:rx(0)_PAD\ : IN std_ulogic;
+        LED_RED(0)_PAD : OUT std_ulogic);
     ATTRIBUTE voltage_VBACKUP OF __DEFAULT__ : ENTITY IS 3.3e0;
     ATTRIBUTE voltage_VDDA_CSD OF __DEFAULT__ : ENTITY IS 3.3e0;
     ATTRIBUTE voltage_VDDIO_A OF __DEFAULT__ : ENTITY IS 3.3e0;
@@ -53,6 +54,7 @@ ARCHITECTURE __DEFAULT__ OF \CY8CPROTO-063-BLE_Master\ IS
     SIGNAL ClockBlock_WCO : bit;
     SIGNAL Debug(0)__PA : bit;
     SIGNAL Int_Debug(0)__PA : bit;
+    SIGNAL LED_RED(0)__PA : bit;
     SIGNAL Net_189 : bit;
     SIGNAL Net_190 : bit;
     SIGNAL Net_191 : bit;
@@ -237,6 +239,8 @@ ARCHITECTURE __DEFAULT__ OF \CY8CPROTO-063-BLE_Master\ IS
     ATTRIBUTE Location OF \UART_1:tx(0)\ : LABEL IS "P9[1]";
     ATTRIBUTE lib_model OF \UART_1:rx(0)\ : LABEL IS "iocell14";
     ATTRIBUTE Location OF \UART_1:rx(0)\ : LABEL IS "P9[0]";
+    ATTRIBUTE lib_model OF LED_RED(0) : LABEL IS "iocell15";
+    ATTRIBUTE Location OF LED_RED(0) : LABEL IS "P6[3]";
     ATTRIBUTE lib_model OF \I2C:bI2C_UDB:status_5\ : LABEL IS "macrocell2";
     ATTRIBUTE Location OF \I2C:bI2C_UDB:status_5\ : LABEL IS "U(0,2)";
     ATTRIBUTE lib_model OF \I2C:bI2C_UDB:status_4\ : LABEL IS "macrocell3";
@@ -1716,6 +1720,60 @@ BEGIN
             oe => open,
             fb => \UART_1:Net_1172\,
             pad_in => \UART_1:rx(0)_PAD\,
+            in_clock => open,
+            in_clock_en => open,
+            in_reset => open,
+            out_clock => open,
+            out_clock_en => open,
+            out_reset => open);
+
+    LED_RED:logicalport
+        GENERIC MAP(
+            cy_registers => "",
+            drive_mode => "110",
+            drive_strength => "0",
+            hotswap_needed => "0",
+            i2c_mode => "0",
+            ibuf_enabled => "0",
+            id => "b78a8bab-f71b-4e01-a09f-65b5ab525f6d",
+            init_dr_st => "1",
+            input_sync => "0",
+            intr_mode => "00",
+            io_voltage => "",
+            max_frequency => "100",
+            oe_conn => "0",
+            oe_sync => "0",
+            output_conn => "0",
+            output_current_cap => "8",
+            output_sync => "0",
+            pin_aliases => "",
+            pin_mode => "B",
+            sio_grp_cnt => 0,
+            slew_rate => "0",
+            use_annotation => "0",
+            vtrip => "00",
+            width => 1,
+            in_clk_inv => 0,
+            in_clken_inv => 0,
+            in_clken_mode => 1,
+            in_rst_inv => 0,
+            out_clk_inv => 0,
+            out_clken_inv => 0,
+            out_clken_mode => 1,
+            out_rst_inv => 0);
+
+    LED_RED(0):iocell
+        GENERIC MAP(
+            in_sync_mode => 0,
+            out_sync_mode => 0,
+            oe_sync_mode => 0,
+            logicalport => "LED_RED",
+            logicalport_pin_id => 0,
+            io_capabilities => "0000000000000000000000000000000000000000000000000000000000000001")
+        PORT MAP(
+            pa_out => LED_RED(0)__PA,
+            oe => open,
+            pad_in => LED_RED(0)_PAD,
             in_clock => open,
             in_clock_en => open,
             in_reset => open,
