@@ -91,7 +91,7 @@ def s3_upload_worker():
         file_to_upload = upload_queue.get()
         if file_to_upload is None:
             break  # Exit the thread
-        upload_to_s3(file_to_upload, S3_BUCKET)
+        # upload_to_s3(file_to_upload, S3_BUCKET)
         upload_queue.task_done()
 
 def ema_worker():
@@ -479,7 +479,7 @@ def main():
             log_file.close()
             print("Log file closed.")
             # Upload the last log file to S3
-            upload_to_s3(current_filename, S3_BUCKET)
+            # upload_to_s3(current_filename, S3_BUCKET)
 
 
 if __name__ == '__main__':
