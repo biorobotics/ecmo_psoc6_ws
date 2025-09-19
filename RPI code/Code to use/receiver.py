@@ -3,14 +3,6 @@ Biorobotics Lab Project 4.2 Fall 2024
 @file: raspberry_pi_uart.py
 @brief: Raspberry Pi UART receiver demo code for communicating with PSoC and uploading data to AWS S3.
 
-@author: Zhaonan Shi <zhaonans>
-@author: Haoran Zheng <hzheng5>
-@author: Haoen Li <haoenl>
-@author: Ching-Han Chou <chingha2>
-@author: Steven Zhang <sijinz>
-@author: Thomas Li <tyli>
-@author: Marina Li <muyaol>
-
 """
 
 import os
@@ -118,9 +110,10 @@ upload_thread = Thread(target=s3_upload_worker)
 upload_thread.daemon = True
 upload_thread.start()
 
-ema_thread = Thread(target=ema_worker)
-ema_thread.daemon = True
-ema_thread.start()
+# comment out EMA function for now
+# ema_thread = Thread(target=ema_worker)
+# ema_thread.daemon = True
+# ema_thread.start()
 
 def bytes2Float(bytes_array):
     """
@@ -134,6 +127,17 @@ def bytes2Float(bytes_array):
     """
     return struct.unpack('<f', bytes_array)[0]
 
+def bytes2u16Int(bytes_array):
+    """
+    Convert a sequence of 2 bytes to an unsigned 16-bit integer using little-endian format.
+
+    Parameters:
+        bytes_array (bytes): A sequence of 2 bytes representing an unsigned 16-bit integer.
+
+    Returns:
+        int: The converted integer.
+    """
+    return struct.unpack('<H', bytes_array)[0]
 
 def calculateCRC8(opCode, dataLength, data):
     """
@@ -224,11 +228,11 @@ def parse_adc_line(line):
     for v in values:
         if 'ADC' in v:
             adc_values.append(float(v.split(': ')[1].strip(',')))
-    return [timestamp_part + ':'] + adc_values 
+    return [timestamp_part + ':'] + adc_values
 
 def EMAprocess(filename):
     with open(filename, 'r') as f:
-        adc_data = [parse_adc_line(line) for line in f if all(adc in line for adc in ['ADC 0', 'ADC 1', 'ADC 2', 'ADC 3'])]
+        adc_data = [parse_adc_line(line) for line in f if 'ADC 0' in line and 'ADC 1' in line and 'ADC 2' in line and 'ADC 3' in line]
 
     # Ensure that there are at least 50 lines to avoid an out-of-range error
     if len(adc_data) >= 50:
@@ -244,7 +248,7 @@ def EMAprocess(filename):
     df['EMA_ADC 1'] = df['ADC 1'].ewm(span=span, adjust=False).mean()
     df['EMA_ADC 2'] = df['ADC 2'].ewm(span=span, adjust=False).mean()
     df['EMA_ADC 3'] = df['ADC 3'].ewm(span=span, adjust=False).mean()
-    
+
     output_filename = f'{EMA_DIRECTORY}/EMA_data_{first_timestamp_part}.txt'
     with open(output_filename, 'w') as f:
         for index, row in df.iterrows():
@@ -273,7 +277,7 @@ def log_message(message):
         if log_file:
             log_file.close()  # Close the previous file
             upload_queue.put(current_filename)
-            ema_queue.put(current_filename)        
+            ema_queue.put(current_filename)
         current_filename = new_filename
         try:
             log_file = open(current_filename, 'a')  # Open a new file
@@ -302,45 +306,81 @@ def process_data():
     data = UART_buffer[2:2 + dataLength]
     receivedCRC = UART_buffer[2 + dataLength]
 
-    # Calculate CRC8
-    calculatedCRC = calculateCRC8(opCode, dataLength, data)
+    if dataLength != 16:
+        print(f"Warning: Unexpected data length {dataLength}, expected 16 for ADC data")
 
-    # Decrypt the received packet
-    decrypted_packet = bytearray()
-    for i in range(0, dataLength, 16):
-        block = data[i:i + 16]
-        if len(block) < 16:
-            # Padding if necessary
-            block += bytes(16 - len(block))
-        decrypted_block = cipher.decrypt(bytes(block))
-        decrypted_packet.extend(decrypted_block[:len(block)])
+    if opCode == 0x0A:
+        #print("No error from PSoC side")
+        # Calculate CRC8
+        calculatedCRC = calculateCRC8(opCode, dataLength, data)
 
-    # Check if the received CRC matches the calculated one
-    if receivedCRC == calculatedCRC:
-        data_element_index = 0
-        log_entry = ""
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        for i in range(0, dataLength, 4):
-            float_bytes = decrypted_packet[i:i + 4]
-            value = bytes2Float(float_bytes)
-            if data_element_index == 0:
-                log_entry += f"{timestamp}: "
-                log_entry += "ADC 0: " if i + 16 >= dataLength else "L680: "
-            elif data_element_index == 1:
-                log_entry += "ADC 1: " if i + 16 >= dataLength else "L850: "
-            elif data_element_index == 2:
-                log_entry += "ADC 2: " if i + 16 >= dataLength else "SO2_avg: "
-            elif data_element_index == 3:
-                log_entry += "ADC 3: " if i + 16 >= dataLength else "HBT: "
-            log_entry += f"{value:.6f}"
-            data_element_index = (data_element_index + 1) % 4
-            if data_element_index == 0:
-                log_message(log_entry)
-                log_entry = ""
-            else:
-                log_entry += ", "
+        # Decrypt the received packet
+        decrypted_packet = bytearray()
+        for i in range(0, dataLength, 16):
+            block = data[i:i + 16]
+            if len(block) < 16:
+                # Padding if necessary
+                block += bytes(16 - len(block))
+            decrypted_block = cipher.decrypt(bytes(block))
+            decrypted_packet.extend(decrypted_block[:len(block)])
+
+        # Check if the received CRC matches the calculated one
+        if receivedCRC == calculatedCRC:
+            data_element_index = 0
+            log_entry = ""
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            for i in range(0, dataLength, 4):
+                float_bytes = decrypted_packet[i:i + 4]
+                value = bytes2Float(float_bytes)
+
+                # if i + 16 < dataLength:  # Comment out ADPD function
+
+                # if data_element_index == 0:
+                #     int_bytes_1 = float_bytes[:2]
+                #     int_bytes_2 = float_bytes[2:]
+                #     value_1 = bytes2u16Int(int_bytes_1)
+                #     value_2 = bytes2u16Int(int_bytes_2)
+
+                # log_entry += f"{timestamp}: "
+                # log_entry += f"L680: {value_1:5d}, L850: {value_2:5d}"
+                # elif data_element_index == 1:
+                #     log_entry += f"SO2: {value:.6f}"
+                # elif data_element_index == 2:
+                #     log_entry += f"SO2_avg: {value:.6f}"
+                # elif data_element_index == 3:
+                #     log_entry += f"HBT: {value:.6f}"
+                # if i + 16 >= dataLength:
+                if data_element_index == 0:
+                    log_entry += f"{timestamp}: "
+                    log_entry += f"ADC 0: {value:.6f}"
+                elif data_element_index == 1:
+                    log_entry += f"ADC 1: {value:.6f}"
+                elif data_element_index == 2:
+                    log_entry += f"ADC 2: {value:.6f}"
+                elif data_element_index == 3:
+                    log_entry += f"ADC 3: {value:.6f}"
+
+                data_element_index = (data_element_index + 1) % 4
+                if data_element_index == 0:
+                    if i + 16 >= dataLength:  #
+                        log_message(log_entry)
+                    log_entry = ""
+                else:
+                    if i + 16 >= dataLength:  #
+                        log_entry += ", "
+        else:
+            print("CRC check failed.")
+
+    elif opCode == 0xF1:
+        print("Encryption Driver Error, PSOC is stuck in a loop, please power cycle PSOC.")
+    elif opCode == 0xF2:
+        print("WARNING: Unusual ADC reading, please check the data or medical equipment setup.")
+    elif opCode == 0xF3:
+        print("Error detected in ")
+    elif opCode == 0x0B:
+        print("Uart started")
     else:
-        print("CRC check failed.")
+        print("Error: Undefined Opcode")
 
 
 def UART_receive(ser):
@@ -370,6 +410,8 @@ def UART_receive(ser):
             process_data()
             buffer_index = 0
             UART_buffer = bytearray()
+    else:
+        print("UART receive nothing")
 
 
 def setup_serial():
