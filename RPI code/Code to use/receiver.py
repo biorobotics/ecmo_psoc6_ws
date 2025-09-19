@@ -20,8 +20,8 @@ from botocore.exceptions import NoCredentialsError
 from Crypto.Cipher import AES  # For AES decryption
 
 # Constants and Configurations
-LOG_DIRECTORY = "/home/pas/Desktop/ecmo/log"
-EMA_DIRECTORY = "/home/pas/Desktop/ecmo/EMA"
+LOG_DIRECTORY = "/home/pi5data/Desktop/ecmo/log"
+EMA_DIRECTORY = "/home/pi5data/Desktop/ecmo/EMA"
 UART_PORT = '/dev/ttyAMA0'
 UART_BAUDRATE = 115200
 AES_KEY = bytes([
@@ -382,6 +382,7 @@ def process_data():
     else:
         print("Error: Undefined Opcode")
 
+last_receive_time = time.time()
 
 def UART_receive(ser):
     """
@@ -393,7 +394,7 @@ def UART_receive(ser):
     Returns:
         None
     """
-    global buffer_index, UART_buffer, UART_timeout
+    global last_receive_time, buffer_index, UART_buffer, UART_timeout
     # Check for UART timeout
     if UART_timeout >= 100:
         buffer_index = 0
@@ -405,13 +406,16 @@ def UART_receive(ser):
         read_data = ser.read(bytes_available)
         UART_buffer.extend(read_data)
         buffer_index += bytes_available
+        last_receive_time = time.time()  # update timestamp when data is received
         # Check if we have enough data to process
         if buffer_index > 1 and buffer_index >= UART_buffer[1] + 3:
             process_data()
             buffer_index = 0
             UART_buffer = bytearray()
     else:
-        print("UART receive nothing")
+        if time.time() - last_receive_time >= 5:
+            print("UART has not received anything for 5 seconds")
+            last_receive_time = time.time()  # reset so it doesn't spam print every loop
 
 
 def setup_serial():
