@@ -139,6 +139,10 @@ def bytes2u16Int(bytes_array):
     """
     return struct.unpack('<H', bytes_array)[0]
 
+def u16_to_i16(u):
+    """Convert unsigned 16-bit to signed 16-bit."""
+    return u - 65536 if u > 32767 else u
+
 def calculateCRC8(opCode, dataLength, data):
     """
     Calculate the CRC8 for an incoming UART packet.
@@ -306,88 +310,69 @@ def process_data():
     data = UART_buffer[2:2 + dataLength]
     receivedCRC = UART_buffer[2 + dataLength]
 
-    if dataLength != 16:
-        print(f"Warning: Unexpected data length {dataLength}, expected 16 for ADC data")
+    if opCode == 0x0B:  # testSuccess: startup banner from PSoC
+        print("UART started.")
+        return
 
-    if opCode == 0x0A:
-        #print("No error from PSoC side")
-        # Calculate CRC8
-        calculatedCRC = calculateCRC8(opCode, dataLength, data)
+    if dataLength != 40:
+        print(f"Warning: Unexpected data length {dataLength}, expecting 40 (6 floats + 8 * int16).")
+        return
+    
+    if opCode == 0xF1:
+        print("Encryption Driver Error: PSOC looped. Please power-cycle the PSOC.")
+        return
+    
+    # print("No encryption error")
 
-        # Decrypt the received packet
-        # ******************************** #
-        # Note: for Oct 30 day sheep study, we disable Crypto
-        # ******************************** #
-        # decrypted_packet = bytearray()
-        # for i in range(0, dataLength, 16):
-        #     block = data[i:i + 16]
-        #     if len(block) < 16:
-        #         # Padding if necessary
-        #         block += bytes(16 - len(block))
-        #     decrypted_block = cipher.decrypt(bytes(block))
-        #     decrypted_packet.extend(decrypted_block[:len(block)])
+    # Decrypt the received packet
+    # ******************************** #
+    # Note: for Oct 30 day sheep study, we disable Crypto
+    # ******************************** #
+    # decrypted_packet = bytearray()
+    # for i in range(0, dataLength, 16):
+    #     block = data[i:i + 16]
+    #     if len(block) < 16:
+    #         # Padding if necessary
+    #         block += bytes(16 - len(block))
+    #     decrypted_block = cipher.decrypt(bytes(block))
+    #     decrypted_packet.extend(decrypted_block[:len(block)])
 
-        # Check if the received CRC matches the calculated one
-        if receivedCRC == calculatedCRC:
-            data_element_index = 0
-            log_entry = ""
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            for i in range(0, dataLength, 4):
-                # ******************************** #
-                # Note: for Oct 30 day sheep study, we disable Crypto
-                # ******************************** #
-                # float_bytes = decrypted_packet[i:i + 4]
-                float_bytes = data[i:i + 4]
-                value = bytes2Float(float_bytes)
+    # Calculate CRC8
+    calculatedCRC = calculateCRC8(opCode, dataLength, data)
+    # Check if the received CRC matches the calculated one
+    if receivedCRC != calculatedCRC:
+        print("CRC check failed.")
+        return
+    
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        # 1) First 6 floats (24 bytes total)
+        adc0, adc1, adc2, adc3, fake_adc0, fake_adc1 = struct.unpack('<6f', data[:24])
 
-                # if i + 16 < dataLength:  # Comment out ADPD function
+        # 2) Next 8 int16 (16 bytes)
+        uart_u16 = [bytes2u16Int(data[24+i:24+i+2]) for i in range(0, 16, 2)]
+        uart_i16 = [u16_to_i16(v) for v in uart_u16]
 
-                # if data_element_index == 0:
-                #     int_bytes_1 = float_bytes[:2]
-                #     int_bytes_2 = float_bytes[2:]
-                #     value_1 = bytes2u16Int(int_bytes_1)
-                #     value_2 = bytes2u16Int(int_bytes_2)
+        # 3) Build log string
+        log_entry = (
+            f"{timestamp}: "
+            f"ADC 0: {adc0:.6f}, ADC 1: {adc1:.6f}, ADC 2: {adc2:.6f}, ADC 3: {adc3:.6f}, "
+            f"FakeADC 1: {fake_adc0:.6f}, FakeADC 2: {fake_adc1:.6f}"
+        )
 
-                # log_entry += f"{timestamp}: "
-                # log_entry += f"L680: {value_1:5d}, L850: {value_2:5d}"
-                # elif data_element_index == 1:
-                #     log_entry += f"SO2: {value:.6f}"
-                # elif data_element_index == 2:
-                #     log_entry += f"SO2_avg: {value:.6f}"
-                # elif data_element_index == 3:
-                #     log_entry += f"HBT: {value:.6f}"
-                # if i + 16 >= dataLength:
-                if data_element_index == 0:
-                    log_entry += f"{timestamp}: "
-                    log_entry += f"ADC 0: {value:.6f}"
-                elif data_element_index == 1:
-                    log_entry += f"ADC 1: {value:.6f}"
-                elif data_element_index == 2:
-                    log_entry += f"ADC 2: {value:.6f}"
-                elif data_element_index == 3:
-                    log_entry += f"ADC 3: {value:.6f}"
+        uart_str = ", ".join(f"UART {i}: {v}" for i, v in enumerate(uart_i16))
+        log_entry += f", {uart_str}"
 
-                data_element_index = (data_element_index + 1) % 4
-                if data_element_index == 0:
-                    if i + 16 >= dataLength:  #
-                        log_message(log_entry)
-                    log_entry = ""
-                else:
-                    if i + 16 >= dataLength:  #
-                        log_entry += ", "
-        else:
-            print("CRC check failed.")
+        if opCode == 0xF2:
+            log_entry += " | WARNING: ADC out of range."
+        elif opCode == 0xF3:
+            log_entry += " | WARNING: ADC jumping."
 
-    elif opCode == 0xF1:
-        print("Encryption Driver Error, PSOC is stuck in a loop, please power cycle PSOC.")
-    elif opCode == 0xF2:
-        print("WARNING: Unusual ADC reading, please check the data or medical equipment setup.")
-    elif opCode == 0xF3:
-        print("Error detected in ")
-    elif opCode == 0x0B:
-        print("Uart started")
-    else:
-        print("Error: Undefined Opcode")
+        log_message(log_entry)
+    
+    except struct.error as e:
+        print(f"Unpack error: {e}.")
+
 
 last_receive_time = time.time()
 

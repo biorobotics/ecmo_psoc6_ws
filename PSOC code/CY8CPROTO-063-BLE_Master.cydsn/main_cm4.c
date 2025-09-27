@@ -116,19 +116,20 @@ CY_ALIGN(4) uint8_t packet[MAX_PACKET_SIZE];
 CY_ALIGN(4) uint8_t encrypted_pkt[MAX_PACKET_SIZE];
 
 /* UART Tx opcodes */
-#define OPCODE_ADC_0 0x01
-#define OPCODE_ADC_1 0x02
-#define OPCODE_ADC_2 0x03
-#define OPCODE_ADC_3 0x04
-#define OPCODE_ADC_4 0x05
-#define OPCODE_ADC_5 0x06
-#define OPCODE_ADC_6 0x07
-#define OPCODE_ADC_7 0x08
-#define OPCODE_ADPD  0x09
-#define OPCODE_ALL   0x0A
-static const uint8_t testSuccess = 0x0B;
+static const uint8_t OPCODE_ADC_0 = 0x01;
+static const uint8_t OPCODE_ADC_1 = 0x02;
+static const uint8_t OPCODE_ADC_2 = 0x03;
+static const uint8_t OPCODE_ADC_3 = 0x04;
+static const uint8_t OPCODE_ADC_4 = 0x05;
+static const uint8_t OPCODE_ADC_5 = 0x06;
+static const uint8_t OPCODE_ADC_6 = 0x07;
+static const uint8_t OPCODE_ADC_7 = 0x08;
+static const uint8_t OPCODE_ADPD  = 0x09;
+static const uint8_t OPCODE_ALL   = 0x0A;
+static const uint8_t testSuccess  = 0x0B;
 static const uint8_t encryptionErrorCode = 0xF1;
-static const uint8_t unreasonableADCValueWarnCodex = 0xF2;
+static const uint8_t ADCOORErrorCode = 0xF2;
+static const uint8_t ADCJumpErrorCode = 0xF3;
 
 /* CRC-8 calculation table */
 const uint8_t crcTable[256] = {
@@ -193,7 +194,7 @@ CY_ISR (Timer_Int_Handler) {
         uint32_t conversionStatus = ADC_IsEndConversion(CY_SAR_RETURN_STATUS);
         if (conversionStatus) {
             for (uint16_t i = 0; i < ADC_NUM_CHANNELS; i++) {
-                Cy_SysLib_Delay(2u);
+                Cy_SysLib_Delay(1u);
                 ADCData[i] = ADC_GetResult16(i);
             }
             dataReady = true;            
@@ -403,21 +404,38 @@ int main(void) {
             for (uint8_t i = 0; i < ADC_NUM_CHANNELS; i++) {
                 float32_t ADCVolts = (3.3/3.3) * Cy_SAR_CountsTo_Volts(SAR, i, ADCData[i]);
                 if(checkData == true){
-                    if(i == ADC_NUM_CHANNELS){
+                    if(i == ADC_NUM_CHANNELS - 1){
                         checkData = false;
                         if(savedADC!=0 && (savedADC >= ADCVolts + toleranceInterval || savedADC <= ADCVolts - toleranceInterval)){
-                            opcode = 0xF3;
+                            opcode = ADCJumpErrorCode;
                         }
                         savedADC = ADCVolts;
                     }
                 }
                 if(ADCVolts > 3.3 || ADCVolts < 0){
-                    opcode = unreasonableADCValueWarnCodex;
+                    opcode = ADCOORErrorCode;
                 }
                 float2Bytes(ADCVolts, &packet[packetsize]);
                 packetsize += sizeof(float32_t);
                 printf("ADC %d: %f, ", i, ADCVolts);
             }
+            
+            float32_t fakePressure1 = 1.2345f;
+            float32_t fakePressure2 = 2.3456f;
+            float2Bytes(fakePressure1, &packet[packetsize]);
+            packetsize += sizeof(float32_t);
+            printf("Fake Pressure 1: %f, ", fakePressure1);
+            float2Bytes(fakePressure2, &packet[packetsize]);
+            packetsize += sizeof(float32_t);
+            printf("Fake Pressure 2: %f, ", fakePressure2);
+            
+            int16_t fakeFlow[8] = { 0, 50, -50, 500, -500, 8191, -8192, 42 };
+            memcpy(&packet[packetsize], fakeFlow, sizeof(fakeFlow));
+            packetsize += sizeof(fakeFlow);
+            for (int i = 0; i < 8; i++) {
+                printf("Fake Flow %d: %d, ", i, fakeFlow[i]);
+}
+            
             printf("\r\n");
             
             /**************************************************/
