@@ -186,13 +186,14 @@ CY_ISR (Timer_Int_Handler) {
     // Increment timer count
     timerCount++;
     timerCountDataCompare++;
-    // Read ADC conversion results with frequency 10 Hz (10 us latency)
+    // Read ADC conversion results with frequency 10 Hz
     if (timerCount == ADC_SAMPLE_RATE_DIV) {
         timerCount = 0;        
         // Check conversion status without blocking
         uint32_t conversionStatus = ADC_IsEndConversion(CY_SAR_RETURN_STATUS);
         if (conversionStatus) {
             for (uint16_t i = 0; i < ADC_NUM_CHANNELS; i++) {
+                Cy_SysLib_Delay(2u);
                 ADCData[i] = ADC_GetResult16(i);
             }
             dataReady = true;            
