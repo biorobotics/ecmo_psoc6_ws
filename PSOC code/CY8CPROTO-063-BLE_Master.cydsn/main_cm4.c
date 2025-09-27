@@ -284,33 +284,43 @@ int main(void) {
     //turbidity_Init();
     //printf("ADPD1080 sensor initialization successful.\r\n");
     
+
+
+    /**************************************************/
+    // Note: for Oct 30 day sheep study, we disable Crypto
+    /**************************************************/
+
     /* Initialization of Crypto Driver */
-	while (Cy_Crypto_Init(&cryptoConfig, &cryptoScratch) != CY_CRYPTO_SUCCESS) {
-        txBuffer[0] = encryptionErrorCode;
-        UART_1_Transmit(txBuffer,1); 
-        Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
-    }
+	// while (Cy_Crypto_Init(&cryptoConfig, &cryptoScratch) != CY_CRYPTO_SUCCESS) {
+    //     txBuffer[0] = encryptionErrorCode;
+    //     UART_1_Transmit(txBuffer,1); 
+    //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
+    // }
 
 	/* Enable Crypto Hardware */
-	while (Cy_Crypto_Enable() != CY_CRYPTO_SUCCESS) {
-        txBuffer[0] = encryptionErrorCode;
-        UART_1_Transmit(txBuffer,1); 
-        Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
-    }
+	// while (Cy_Crypto_Enable() != CY_CRYPTO_SUCCESS) {
+    //     txBuffer[0] = encryptionErrorCode;
+    //     UART_1_Transmit(txBuffer,1); 
+    //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
+    // }
 
 	/* Wait for Crypto Block to be available */
-	Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
+	//Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
     
     /* Initializes the AES operation by setting key and key length */
-	while (Cy_Crypto_Aes_Init((uint32_t*)AES_Key, CY_CRYPTO_KEY_AES_128, &cryptoAES) != CY_CRYPTO_SUCCESS) {
-        txBuffer[0] = encryptionErrorCode;
-        UART_1_Transmit(txBuffer,1); 
-        Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
-    }
+	// while (Cy_Crypto_Aes_Init((uint32_t*)AES_Key, CY_CRYPTO_KEY_AES_128, &cryptoAES) != CY_CRYPTO_SUCCESS) {
+    //     txBuffer[0] = encryptionErrorCode;
+    //     UART_1_Transmit(txBuffer,1); 
+    //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
+    // }
 
 	/* Wait for Crypto Block to be available */
-	Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
+	//Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
     
+
+
+
+
     // Begin first ADC scan
     ADC_StartConvert();
     
@@ -390,7 +400,7 @@ int main(void) {
             // Process ADC data
             uint8_t opcode = OPCODE_ALL;
             for (uint8_t i = 0; i < ADC_NUM_CHANNELS; i++) {
-                float32_t ADCVolts = (3.3/2.739) * Cy_SAR_CountsTo_Volts(SAR, i, ADCData[i]);
+                float32_t ADCVolts = (3.3/3.3) * Cy_SAR_CountsTo_Volts(SAR, i, ADCData[i]);
                 if(checkData == true){
                     if(i == ADC_NUM_CHANNELS){
                         checkData = false;
@@ -409,28 +419,33 @@ int main(void) {
             }
             printf("\r\n");
             
+            /**************************************************/
+            // Note: for Oct 30 day sheep study, we disable Crypto
+            /**************************************************/
             // Encrypt packet
-            AESBlock_count = (packetsize % AES128_ENCRYPTION_LENGTH == 0) ? \
-								  (packetsize/AES128_ENCRYPTION_LENGTH) \
-								  : (1 + packetsize/AES128_ENCRYPTION_LENGTH);
+            // AESBlock_count = (packetsize % AES128_ENCRYPTION_LENGTH == 0) ? \
+			// 					  (packetsize/AES128_ENCRYPTION_LENGTH) \
+			// 					  : (1 + packetsize/AES128_ENCRYPTION_LENGTH);
                                 
-			for (int i = 0; i < AESBlock_count ; i++) {
-				/* Perform AES ECB Encryption mode of operation */
-				cy_en_crypto_status_t status;
-                status = Cy_Crypto_Aes_Ecb_Run(CY_CRYPTO_ENCRYPT,\
-				(uint32_t*) (encrypted_pkt + AES128_ENCRYPTION_LENGTH * i),\
-				(uint32_t*) (packet + AES128_ENCRYPTION_LENGTH * i), &cryptoAES);
-                if (status != CY_CRYPTO_SUCCESS) {
-                    // printf("error: AES Encryption failed!\r\n");
-                    Cy_SysLib_Delay(5u); // wait 5 ms to signal error
-                }
+			// for (int i = 0; i < AESBlock_count ; i++) {
+			// 	/* Perform AES ECB Encryption mode of operation */
+			// 	cy_en_crypto_status_t status;
+            //     status = Cy_Crypto_Aes_Ecb_Run(CY_CRYPTO_ENCRYPT,\
+			// 	(uint32_t*) (encrypted_pkt + AES128_ENCRYPTION_LENGTH * i),\
+			// 	(uint32_t*) (packet + AES128_ENCRYPTION_LENGTH * i), &cryptoAES);
+            //     if (status != CY_CRYPTO_SUCCESS) {
+            //         // printf("error: AES Encryption failed!\r\n");
+            //         Cy_SysLib_Delay(5u); // wait 5 ms to signal error
+            //     }
 
-				/* Wait for Crypto Block to be available */
-				Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
-			}
+			// 	/* Wait for Crypto Block to be available */
+			// 	Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
+			// }
             
             // Transmit packet
-            wrap_data(opcode, encrypted_pkt, AESBlock_count*AES128_ENCRYPTION_LENGTH);
+            //wrap_data(opcode, encrypted_pkt, AESBlock_count*AES128_ENCRYPTION_LENGTH);
+
+            wrap_data(opcode, packet, packetsize);
         }
     }
 }

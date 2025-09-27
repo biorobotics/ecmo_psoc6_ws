@@ -315,14 +315,17 @@ def process_data():
         calculatedCRC = calculateCRC8(opCode, dataLength, data)
 
         # Decrypt the received packet
-        decrypted_packet = bytearray()
-        for i in range(0, dataLength, 16):
-            block = data[i:i + 16]
-            if len(block) < 16:
-                # Padding if necessary
-                block += bytes(16 - len(block))
-            decrypted_block = cipher.decrypt(bytes(block))
-            decrypted_packet.extend(decrypted_block[:len(block)])
+        # ******************************** #
+        # Note: for Oct 30 day sheep study, we disable Crypto
+        # ******************************** #
+        # decrypted_packet = bytearray()
+        # for i in range(0, dataLength, 16):
+        #     block = data[i:i + 16]
+        #     if len(block) < 16:
+        #         # Padding if necessary
+        #         block += bytes(16 - len(block))
+        #     decrypted_block = cipher.decrypt(bytes(block))
+        #     decrypted_packet.extend(decrypted_block[:len(block)])
 
         # Check if the received CRC matches the calculated one
         if receivedCRC == calculatedCRC:
@@ -330,7 +333,11 @@ def process_data():
             log_entry = ""
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
             for i in range(0, dataLength, 4):
-                float_bytes = decrypted_packet[i:i + 4]
+                # ******************************** #
+                # Note: for Oct 30 day sheep study, we disable Crypto
+                # ******************************** #
+                # float_bytes = decrypted_packet[i:i + 4]
+                float_bytes = data[i:i + 4]
                 value = bytes2Float(float_bytes)
 
                 # if i + 16 < dataLength:  # Comment out ADPD function
