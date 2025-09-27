@@ -256,8 +256,7 @@ int main(void) {
     
     // Intialize UART_1 for data transmission to Raspberry Pi
     UART_1_Start();
-    txBuffer[0] = 0xA1;
-    UART_1_Transmit(txBuffer,1);
+
     // Initialize I2C for digital sensor communication
     //I2C_Start();
     
@@ -328,6 +327,10 @@ int main(void) {
     
     // Initialize and start Timer to periodically handle ADC conversion results
     Timer_Start();
+    
+    txBuffer[0] = testSuccess;
+    txBuffer[1] = 40;
+    UART_1_Transmit(txBuffer,43);
     
     // Background loop
     for (;;) {
@@ -419,22 +422,77 @@ int main(void) {
                 packetsize += sizeof(float32_t);
                 printf("ADC %d: %f, ", i, ADCVolts);
             }
+
+            static const float32_t TWO_PI = 6.28318530718f;
+            static const float32_t fakeADC_amp[2]   = {0.80f, 0.60f};          // amplitudes (V)
+            static const float32_t fakeADC_off[2]   = {1.65f, 1.65f};          // DC offsets (V)
+            static const float32_t fakeADC_freq[2]  = {0.20f, 0.11f};          // Hz (periods: 5.0s, ~9.1s)
+            static float32_t       fakeADC_phase[2] = {0.0f, 0.0f};            // radians
+
+            /* UART fake waves: signed int16; wide but safe amplitude */
+            static const float32_t fakeUART_amp     = 2000.0f;                 // peak ≈ ±2000
+            static const float32_t fakeUART_freq[8] = {0.50f, 0.33f, 0.25f, 0.20f,
+                                                    0.16f, 0.14f, 0.12f, 0.10f};
+            static float32_t       fakeUART_phase[8]= {0.0f, 0.0f, 0.0f, 0.0f,
+                                                    0.0f, 0.0f, 0.0f, 0.0f};
+
+            // float32_t fakePressure1 = 1.2345f;
+            // float32_t fakePressure2 = 2.3456f;
+            // float2Bytes(fakePressure1, &packet[packetsize]);
+            // packetsize += sizeof(float32_t);
+            // printf("Fake Pressure 1: %f, ", fakePressure1);
+            // float2Bytes(fakePressure2, &packet[packetsize]);
+            // packetsize += sizeof(float32_t);
+            // printf("Fake Pressure 2: %f, ", fakePressure2);
+            /* ADC fake waves: keep within 0..3.3 V with an offset around mid-supply */            
             
-            float32_t fakePressure1 = 1.2345f;
-            float32_t fakePressure2 = 2.3456f;
-            float2Bytes(fakePressure1, &packet[packetsize]);
-            packetsize += sizeof(float32_t);
-            printf("Fake Pressure 1: %f, ", fakePressure1);
-            float2Bytes(fakePressure2, &packet[packetsize]);
-            packetsize += sizeof(float32_t);
-            printf("Fake Pressure 2: %f, ", fakePressure2);
+            /* ----------- Append two sinusoidal fake ADC float32 values ----------- */
+            for (uint8_t k = 0; k < 2; ++k) {
+                // advance phase
+                fakeADC_phase[k] += TWO_PI * (fakeADC_freq[k] / 10.0f);
+                if (fakeADC_phase[k] >= TWO_PI) fakeADC_phase[k] -= TWO_PI;
+
+                // generate value
+                float32_t v = fakeADC_off[k] + fakeADC_amp[k] * sinf(fakeADC_phase[k]);
+
+                // clamp to 0..3.3 just in case
+                if (v < 0.0f) v = 0.0f;
+                if (v > 3.3f) v = 3.3f;
+
+                float2Bytes(v, &packet[packetsize]);
+                packetsize += sizeof(float32_t);
+
+                printf("Fake Pressure %u: %f, ", (unsigned)k, v);
+            }
             
-            int16_t fakeFlow[8] = { 0, 50, -50, 500, -500, 8191, -8192, 42 };
-            memcpy(&packet[packetsize], fakeFlow, sizeof(fakeFlow));
-            packetsize += sizeof(fakeFlow);
-            for (int i = 0; i < 8; i++) {
-                printf("Fake Flow %d: %d, ", i, fakeFlow[i]);
-}
+            // int16_t fakeFlow[8] = { 0, 50, -50, 500, -500, 8191, -8192, 42 };
+            // memcpy(&packet[packetsize], fakeFlow, sizeof(fakeFlow));
+            // packetsize += sizeof(fakeFlow);
+            // for (int i = 0; i < 8; i++) {
+            //     printf("Fake Flow %d: %d, ", i, fakeFlow[i]);
+            // }
+
+            /* ----------- Append 16-byte sinusoidal fake UART block (8 × int16) ----------- */
+            int16_t fakeUART_i16[8];
+            for (uint8_t ch = 0; ch < 8; ++ch) {
+                fakeUART_phase[ch] += TWO_PI * (fakeUART_freq[ch] / 10.0f);
+                if (fakeUART_phase[ch] >= TWO_PI) fakeUART_phase[ch] -= TWO_PI;
+
+                float32_t s = sinf(fakeUART_phase[ch]);
+                int32_t sv = (int32_t)lrintf(fakeUART_amp * s);   // signed, around ±2000
+
+                // saturate to int16 range
+                if (sv >  8191) sv =  8191;
+                if (sv < -8192) sv = -8192;
+
+                fakeUART_i16[ch] = (int16_t)sv;
+            }
+
+            // pack as raw little-endian int16 array (16 bytes total)
+            memcpy(&packet[packetsize], fakeUART_i16, sizeof(fakeUART_i16));
+            packetsize += sizeof(fakeUART_i16);
+
+            for (uint8_t ch = 0; ch < 8; ++ch) printf("Fake Flow %u: %d ", ch, fakeUART_i16[ch]); printf("\r\n");
             
             printf("\r\n");
             

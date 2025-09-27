@@ -315,7 +315,7 @@ def process_data():
         return
 
     if dataLength != 40:
-        print(f"Warning: Unexpected data length {dataLength}, expecting 40 (6 floats + 8 * int16).")
+        print(f"Warning: Unexpected data length {dataLength}, expecting 40 (6 float32 + 8 int16).")
         return
     
     if opCode == 0xF1:
