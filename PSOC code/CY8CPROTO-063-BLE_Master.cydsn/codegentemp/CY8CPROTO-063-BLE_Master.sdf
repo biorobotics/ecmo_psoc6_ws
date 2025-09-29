@@ -1,6 +1,6 @@
 (DELAYFILE
  (SDFVERSION "IEEE 1497 4.0")
- (DATE "2024-11-15T19:58:23Z")
+ (DATE "2025-09-27T00:07:37Z")
  (DESIGN "CY8CPROTO-063-BLE_Master")
  (VENDOR "Cypress Semiconductor")
  (PROGRAM "PSoC Creator")
@@ -284,6 +284,7 @@
     (INTERCONNECT \\UART_1\:tx\(0\)\\.pad_out \\UART_1\:tx\(0\)_PAD\\ (0.000:0.000:0.000))
     (INTERCONNECT \\UART_1\:tx\(0\)_PAD\\ \\UART_1\:tx\(0\)\\.pad_in (0.000:0.000:0.000))
     (INTERCONNECT \\UART_1\:rx\(0\)_PAD\\ \\UART_1\:rx\(0\)\\.pad_in (0.000:0.000:0.000))
+    (INTERCONNECT LED_RED\(0\)_PAD LED_RED\(0\).pad_in (0.000:0.000:0.000))
    )
   )
  )

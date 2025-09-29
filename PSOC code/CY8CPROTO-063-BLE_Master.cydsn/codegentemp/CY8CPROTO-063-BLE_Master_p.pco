@@ -66,4 +66,5 @@ set_io "ADC_CH2(0)" iocell 10 5
 set_io "ADC_CH3(0)" iocell 10 6
 set_io "Int_Debug(0)" iocell 0 5
 set_io "Debug(0)" iocell 9 5
+set_io "LED_RED(0)" iocell 6 3
 set_location "CPUSS" CPUSS -1 -1 0

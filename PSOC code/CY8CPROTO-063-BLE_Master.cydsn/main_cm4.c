@@ -17,6 +17,7 @@
 #define ADC_NUM_CHANNELS         4u
 #define ADC_SAMPLES_PER_PACKET   1u
 #define ADC_SAMPLE_RATE_DIV      10u
+static const uint32_t dataCompareInterval = 500;
 
 #define ADPD_NUM_CHANNELS        1u
 #define ADPD_SAMPLES_PER_PACKET  10u
@@ -26,16 +27,19 @@
 
 // Maximum number of bytes in a packet
 #define MAX_PACKET_SIZE          255u
-
+#define LED_RED_0 P6_3
 /* Foreground-background shared variables */
 volatile bool dataReady = false;
+volatile static bool checkData = false;
+static const float32_t toleranceInterval = 0.3;
+volatile static float32_t savedADC = 0;
 volatile int16_t ADCData[ADC_SAMPLES_PER_PACKET*ADC_NUM_CHANNELS];
-volatile uint16_t adpdDataA[ADPD_SAMPLES_PER_PACKET*ADPD_NUM_CHANNELS];
-volatile uint16_t adpdDataB[ADPD_SAMPLES_PER_PACKET*ADPD_NUM_CHANNELS];
+//volatile uint16_t adpdDataA[ADPD_SAMPLES_PER_PACKET*ADPD_NUM_CHANNELS];
+//volatile uint16_t adpdDataB[ADPD_SAMPLES_PER_PACKET*ADPD_NUM_CHANNELS];
 
 /* Foreground variables */
 volatile uint16_t timerCount = 0;
-
+volatile uint16_t timerCountDataCompare = 0;
 /* Background variables */
 uint8_t txBuffer[MAX_PACKET_SIZE + 3];
 
@@ -112,16 +116,20 @@ CY_ALIGN(4) uint8_t packet[MAX_PACKET_SIZE];
 CY_ALIGN(4) uint8_t encrypted_pkt[MAX_PACKET_SIZE];
 
 /* UART Tx opcodes */
-#define OPCODE_ADC_0 0x01
-#define OPCODE_ADC_1 0x02
-#define OPCODE_ADC_2 0x03
-#define OPCODE_ADC_3 0x04
-#define OPCODE_ADC_4 0x05
-#define OPCODE_ADC_5 0x06
-#define OPCODE_ADC_6 0x07
-#define OPCODE_ADC_7 0x08
-#define OPCODE_ADPD  0x09
-#define OPCODE_ALL   0x0A
+static const uint8_t OPCODE_ADC_0 = 0x01;
+static const uint8_t OPCODE_ADC_1 = 0x02;
+static const uint8_t OPCODE_ADC_2 = 0x03;
+static const uint8_t OPCODE_ADC_3 = 0x04;
+static const uint8_t OPCODE_ADC_4 = 0x05;
+static const uint8_t OPCODE_ADC_5 = 0x06;
+static const uint8_t OPCODE_ADC_6 = 0x07;
+static const uint8_t OPCODE_ADC_7 = 0x08;
+static const uint8_t OPCODE_ADPD  = 0x09;
+static const uint8_t OPCODE_ALL   = 0x0A;
+static const uint8_t testSuccess  = 0x0B;
+static const uint8_t encryptionErrorCode = 0xF1;
+static const uint8_t ADCOORErrorCode = 0xF2;
+static const uint8_t ADCJumpErrorCode = 0xF3;
 
 /* CRC-8 calculation table */
 const uint8_t crcTable[256] = {
@@ -167,25 +175,26 @@ CY_ISR (Timer_Int_Handler) {
     Timer_ClearInterrupt(CY_TCPWM_INT_ON_TC);
     
     // Read ADPD1080 data registers with data hold mechanism (6 ms)
-    if (turbidity_ReadDataNoInterrupt(ADPD_NUM_CHANNELS)) {
+    /*if (turbidity_ReadDataNoInterrupt(ADPD_NUM_CHANNELS)) {
         adpdDataA[timerCount] = au16DataSlotA[0];
         adpdDataB[timerCount] = au16DataSlotB[0];
     }
     else {
         adpdDataA[timerCount] = 0;
         adpdDataB[timerCount] = 0;
-    }
+    }*/
     
     // Increment timer count
     timerCount++;
-    
-    // Read ADC conversion results with frequency 10 Hz (10 us latency)
+    timerCountDataCompare++;
+    // Read ADC conversion results with frequency 10 Hz
     if (timerCount == ADC_SAMPLE_RATE_DIV) {
         timerCount = 0;        
         // Check conversion status without blocking
         uint32_t conversionStatus = ADC_IsEndConversion(CY_SAR_RETURN_STATUS);
         if (conversionStatus) {
             for (uint16_t i = 0; i < ADC_NUM_CHANNELS; i++) {
+                Cy_SysLib_Delay(1u);
                 ADCData[i] = ADC_GetResult16(i);
             }
             dataReady = true;            
@@ -200,6 +209,10 @@ CY_ISR (Timer_Int_Handler) {
             Cy_SysLib_Delay(5u); // wait 5 ms to signal error
         }        
     }
+    if(timerCountDataCompare == dataCompareInterval){
+        timerCountDataCompare = 0; 
+        checkData = true;
+    }
     
     // Flush write to hardware by reading from same register
     Timer_GetInterruptStatus();
@@ -210,15 +223,17 @@ CY_ISR (Timer_Int_Handler) {
  */
 int main(void) {
     // Variables for calculating oxygen saturation and hemoglobin concentration
+    /*
     uint16_t L680 ; // Time Slot A Channel 1 (680 nm laser)
     uint16_t L850 ; // Time Slot B Channel 1 (850 nm laser)
-
+    
     float32_t R;                 // Ratio of L680 to L850
     float32_t SO2;               // Oxygen saturation
     float32_t HBT;               // Hemoglobin concentration
     float32_t R_avg;             // Running average R
     float32_t SO2_avg;           // Running average SO2
     float32_t HBT_avg;           // Running average HBT
+    
 
     // Maintain running average
     uint16_t slotA_avg[SMOOTHED_SAMPLE_SIZE] = {0};
@@ -232,18 +247,18 @@ int main(void) {
     uint32_t sumB = 0;
     uint32_t lenA = sizeof(slotA_avg)/sizeof(uint16_t);
     uint32_t lenB = sizeof(slotB_avg)/sizeof(uint16_t);
-    
+    */
     // Store current size of sensor data UART packet and number of AES blocks
     uint8_t packetsize = 0, AESBlock_count = 0;
     
     // Initialize UART for debugging purposes
     UART_Start();
     
-    // Intialize UART_1 for data transmission to ESP32
+    // Intialize UART_1 for data transmission to Raspberry Pi
     UART_1_Start();
-    
+
     // Initialize I2C for digital sensor communication
-    I2C_Start();
+    //I2C_Start();
     
     // Intialize ADC for receiving analog sensor data
     ADC_Start();
@@ -253,40 +268,69 @@ int main(void) {
     NVIC_EnableIRQ(Timer_Int_cfg.intrSrc);
     
     __enable_irq();  // Enable global interrupts
-
+    Cy_GPIO_Pin_FastInit(GPIO_PRT6, 3u, CY_GPIO_DM_STRONG, 1u, HSIOM_SEL_GPIO);
+    Cy_GPIO_Set(GPIO_PRT6, 3u);   // drive high -> LED OFF
+    
+    
     // Initialize and configure the ADPD1080 sensor
-    printf("Initializing ADPD1080 sensor...\r\n");
+    //printf("Initializing ADPD1080 sensor...\r\n");
 
-    while (!ADPD1080_Begin(ADPD1080_ADDRESS, 0)) {
+    /*while (!ADPD1080_Begin(ADPD1080_ADDRESS, 0)) {
         printf("error: ADPD1080 sensor initialization failed!\r\n");
         Cy_SysLib_Delay(5u); // wait 5 ms before retrying
-        // while (1); // Loop forever on failure
-    }
+        while (1); // Loop forever on failure
+    }*/
     
     // Initialize sensor registers
-    turbidity_Init();
-    printf("ADPD1080 sensor initialization successful.\r\n");
+    //turbidity_Init();
+    //printf("ADPD1080 sensor initialization successful.\r\n");
     
+
+
+    /**************************************************/
+    // Note: for Oct 30 day sheep study, we disable Crypto
+    /**************************************************/
+
     /* Initialization of Crypto Driver */
-	while (Cy_Crypto_Init(&cryptoConfig, &cryptoScratch) != CY_CRYPTO_SUCCESS) {}
+	// while (Cy_Crypto_Init(&cryptoConfig, &cryptoScratch) != CY_CRYPTO_SUCCESS) {
+    //     txBuffer[0] = encryptionErrorCode;
+    //     UART_1_Transmit(txBuffer,1); 
+    //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
+    // }
 
 	/* Enable Crypto Hardware */
-	while (Cy_Crypto_Enable() != CY_CRYPTO_SUCCESS) {}
+	// while (Cy_Crypto_Enable() != CY_CRYPTO_SUCCESS) {
+    //     txBuffer[0] = encryptionErrorCode;
+    //     UART_1_Transmit(txBuffer,1); 
+    //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
+    // }
 
 	/* Wait for Crypto Block to be available */
-	Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
+	//Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
     
     /* Initializes the AES operation by setting key and key length */
-	while (Cy_Crypto_Aes_Init((uint32_t*)AES_Key, CY_CRYPTO_KEY_AES_128, &cryptoAES) != CY_CRYPTO_SUCCESS) {}
+	// while (Cy_Crypto_Aes_Init((uint32_t*)AES_Key, CY_CRYPTO_KEY_AES_128, &cryptoAES) != CY_CRYPTO_SUCCESS) {
+    //     txBuffer[0] = encryptionErrorCode;
+    //     UART_1_Transmit(txBuffer,1); 
+    //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
+    // }
 
 	/* Wait for Crypto Block to be available */
-	Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
+	//Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
     
+
+
+
+
     // Begin first ADC scan
     ADC_StartConvert();
     
     // Initialize and start Timer to periodically handle ADC conversion results
     Timer_Start();
+    
+    txBuffer[0] = testSuccess;
+    txBuffer[1] = 40;
+    UART_1_Transmit(txBuffer,43);
     
     // Background loop
     for (;;) {
@@ -298,7 +342,7 @@ int main(void) {
             packetsize = 0, AESBlock_count = 0;
             
             // Process adpd1080 data
-            for (uint8_t i = 0; i < ADPD_SAMPLES_PER_PACKET; i++) {
+            /*for (uint8_t i = 0; i < ADPD_SAMPLES_PER_PACKET; i++) {
                 // Raw light intensity
                 L680 = adpdDataA[i];
                 L850 = adpdDataB[i];
@@ -356,39 +400,129 @@ int main(void) {
                 packetsize += sizeof(float32_t);
                 
                 printf("L680: %u, L850: %u, SO2: %f, SO2_avg: %f, HBT: %f\r\n", L680, L850, SO2, SO2_avg, HBT);
-            }
+            }*/
             
             // Process ADC data
+            uint8_t opcode = OPCODE_ALL;
             for (uint8_t i = 0; i < ADC_NUM_CHANNELS; i++) {
-                float32_t ADCVolts = (3.3/2.739) * Cy_SAR_CountsTo_Volts(SAR, i, ADCData[i]);
+                float32_t ADCVolts = (3.3/3.3) * Cy_SAR_CountsTo_Volts(SAR, i, ADCData[i]);
+                if(checkData == true){
+                    if(i == ADC_NUM_CHANNELS - 1){
+                        checkData = false;
+                        if(savedADC!=0 && (savedADC >= ADCVolts + toleranceInterval || savedADC <= ADCVolts - toleranceInterval)){
+                            opcode = ADCJumpErrorCode;
+                        }
+                        savedADC = ADCVolts;
+                    }
+                }
+                if(ADCVolts > 3.3 || ADCVolts < 0){
+                    opcode = ADCOORErrorCode;
+                }
                 float2Bytes(ADCVolts, &packet[packetsize]);
                 packetsize += sizeof(float32_t);
                 printf("ADC %d: %f, ", i, ADCVolts);
             }
+
+            static const float32_t TWO_PI = 6.28318530718f;
+            static const float32_t fakeADC_amp[2]   = {0.80f, 0.60f};          // amplitudes (V)
+            static const float32_t fakeADC_off[2]   = {1.65f, 1.65f};          // DC offsets (V)
+            static const float32_t fakeADC_freq[2]  = {0.20f, 0.11f};          // Hz (periods: 5.0s, ~9.1s)
+            static float32_t       fakeADC_phase[2] = {0.0f, 0.0f};            // radians
+
+            /* UART fake waves: signed int16; wide but safe amplitude */
+            static const float32_t fakeUART_amp     = 2000.0f;                 // peak ≈ ±2000
+            static const float32_t fakeUART_freq[8] = {0.50f, 0.33f, 0.25f, 0.20f,
+                                                    0.16f, 0.14f, 0.12f, 0.10f};
+            static float32_t       fakeUART_phase[8]= {0.0f, 0.0f, 0.0f, 0.0f,
+                                                    0.0f, 0.0f, 0.0f, 0.0f};
+
+            // float32_t fakePressure1 = 1.2345f;
+            // float32_t fakePressure2 = 2.3456f;
+            // float2Bytes(fakePressure1, &packet[packetsize]);
+            // packetsize += sizeof(float32_t);
+            // printf("Fake Pressure 1: %f, ", fakePressure1);
+            // float2Bytes(fakePressure2, &packet[packetsize]);
+            // packetsize += sizeof(float32_t);
+            // printf("Fake Pressure 2: %f, ", fakePressure2);
+            /* ADC fake waves: keep within 0..3.3 V with an offset around mid-supply */            
+            
+            /* ----------- Append two sinusoidal fake ADC float32 values ----------- */
+            for (uint8_t k = 0; k < 2; ++k) {
+                // advance phase
+                fakeADC_phase[k] += TWO_PI * (fakeADC_freq[k] / 10.0f);
+                if (fakeADC_phase[k] >= TWO_PI) fakeADC_phase[k] -= TWO_PI;
+
+                // generate value
+                float32_t v = fakeADC_off[k] + fakeADC_amp[k] * sinf(fakeADC_phase[k]);
+
+                // clamp to 0..3.3 just in case
+                if (v < 0.0f) v = 0.0f;
+                if (v > 3.3f) v = 3.3f;
+
+                float2Bytes(v, &packet[packetsize]);
+                packetsize += sizeof(float32_t);
+
+                printf("Fake Pressure %u: %f, ", (unsigned)k, v);
+            }
+            
+            // int16_t fakeFlow[8] = { 0, 50, -50, 500, -500, 8191, -8192, 42 };
+            // memcpy(&packet[packetsize], fakeFlow, sizeof(fakeFlow));
+            // packetsize += sizeof(fakeFlow);
+            // for (int i = 0; i < 8; i++) {
+            //     printf("Fake Flow %d: %d, ", i, fakeFlow[i]);
+            // }
+
+            /* ----------- Append 16-byte sinusoidal fake UART block (8 × int16) ----------- */
+            int16_t fakeUART_i16[8];
+            for (uint8_t ch = 0; ch < 8; ++ch) {
+                fakeUART_phase[ch] += TWO_PI * (fakeUART_freq[ch] / 10.0f);
+                if (fakeUART_phase[ch] >= TWO_PI) fakeUART_phase[ch] -= TWO_PI;
+
+                float32_t s = sinf(fakeUART_phase[ch]);
+                int32_t sv = (int32_t)lrintf(fakeUART_amp * s);   // signed, around ±2000
+
+                // saturate to int16 range
+                if (sv >  8191) sv =  8191;
+                if (sv < -8192) sv = -8192;
+
+                fakeUART_i16[ch] = (int16_t)sv;
+            }
+
+            // pack as raw little-endian int16 array (16 bytes total)
+            memcpy(&packet[packetsize], fakeUART_i16, sizeof(fakeUART_i16));
+            packetsize += sizeof(fakeUART_i16);
+
+            for (uint8_t ch = 0; ch < 8; ++ch) printf("Fake Flow %u: %d ", ch, fakeUART_i16[ch]); printf("\r\n");
+            
             printf("\r\n");
             
+            /**************************************************/
+            // Note: for Oct 30 day sheep study, we disable Crypto
+            /**************************************************/
             // Encrypt packet
-            AESBlock_count = (packetsize % AES128_ENCRYPTION_LENGTH == 0) ? \
-								  (packetsize/AES128_ENCRYPTION_LENGTH) \
-								  : (1 + packetsize/AES128_ENCRYPTION_LENGTH);
+            // AESBlock_count = (packetsize % AES128_ENCRYPTION_LENGTH == 0) ? \
+			// 					  (packetsize/AES128_ENCRYPTION_LENGTH) \
+			// 					  : (1 + packetsize/AES128_ENCRYPTION_LENGTH);
                                 
-			for (int i = 0; i < AESBlock_count ; i++) {
-				/* Perform AES ECB Encryption mode of operation */
-				cy_en_crypto_status_t status;
-                status = Cy_Crypto_Aes_Ecb_Run(CY_CRYPTO_ENCRYPT,\
-				(uint32_t*) (encrypted_pkt + AES128_ENCRYPTION_LENGTH * i),\
-				(uint32_t*) (packet + AES128_ENCRYPTION_LENGTH * i), &cryptoAES);
-                if (status != CY_CRYPTO_SUCCESS) {
-                    // printf("error: AES Encryption failed!\r\n");
-                    Cy_SysLib_Delay(5u); // wait 5 ms to signal error
-                }
+			// for (int i = 0; i < AESBlock_count ; i++) {
+			// 	/* Perform AES ECB Encryption mode of operation */
+			// 	cy_en_crypto_status_t status;
+            //     status = Cy_Crypto_Aes_Ecb_Run(CY_CRYPTO_ENCRYPT,\
+			// 	(uint32_t*) (encrypted_pkt + AES128_ENCRYPTION_LENGTH * i),\
+			// 	(uint32_t*) (packet + AES128_ENCRYPTION_LENGTH * i), &cryptoAES);
+            //     if (status != CY_CRYPTO_SUCCESS) {
+            //         // printf("error: AES Encryption failed!\r\n");
+            //         Cy_SysLib_Delay(5u); // wait 5 ms to signal error
+            //     }
 
-				/* Wait for Crypto Block to be available */
-				Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
-			}
+			// 	/* Wait for Crypto Block to be available */
+			// 	Cy_Crypto_Sync(CY_CRYPTO_SYNC_BLOCKING);
+			// }
             
             // Transmit packet
-            wrap_data(OPCODE_ALL, encrypted_pkt, AESBlock_count*AES128_ENCRYPTION_LENGTH);
+            //wrap_data(opcode, encrypted_pkt, AESBlock_count*AES128_ENCRYPTION_LENGTH);
+
+            wrap_data(opcode, packet, packetsize);
         }
     }
 }
@@ -432,8 +566,10 @@ uint8_t calculateCRC8(uint8_t opCode, uint8_t dataLength, uint8_t* data) {
 */
 void wrap_data(uint8_t opcode, uint8_t* data, uint8_t length) {
     // Ensure previous transmission is not ongoing before modifying transmit buffer
+    //printf("Try to send data \r\n");
     while (UART_1_GetTransmitStatus() == CY_SCB_UART_TRANSMIT_ACTIVE) {
         // printf("Waiting for previous transmission to complete\r\n");
+        Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
         Cy_SysLib_Delay(5u); // wait 5 ms for completion        
     }
     
@@ -442,11 +578,14 @@ void wrap_data(uint8_t opcode, uint8_t* data, uint8_t length) {
     txBuffer[1] = length;
     memcpy(&txBuffer[2], data, length);
     txBuffer[2 + length] = calculateCRC8(opcode, length, data);
-    
+    Cy_GPIO_Set(GPIO_PRT6, 3u);   // drive high -> LED OFF
     status = UART_1_Transmit(txBuffer, 2 + length + 1);
+    //printf("Sent data \r\n");
     if (status != CY_SCB_UART_SUCCESS) {
         // printf("\r\nerror: Tx status 0x%x\r\n", status);
+        Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
         Cy_SysLib_Delay(5u); // wait 5 ms to signal error
+        //printf("Data failed \r\n");
     }
     
     // demo only
@@ -466,7 +605,7 @@ void wrap_data(uint8_t opcode, uint8_t* data, uint8_t length) {
  *
  * @return int - the moving average after nextNum added
 */
-float32_t movingAvg(uint16_t *ptrArrNumbers, uint32_t *ptrSum, uint32_t pos, uint32_t len, uint16_t nextNum) {
+/*float32_t movingAvg(uint16_t *ptrArrNumbers, uint32_t *ptrSum, uint32_t pos, uint32_t len, uint16_t nextNum) {
     // Subtract the oldest number from the prev sum, add the new number
     *ptrSum = *ptrSum - ptrArrNumbers[pos] + nextNum;
     
@@ -475,7 +614,7 @@ float32_t movingAvg(uint16_t *ptrArrNumbers, uint32_t *ptrSum, uint32_t pos, uin
     
     // return the average
     return (float32_t)*ptrSum / len;
-}
+}*/
 
 /**
  * @brief Helper function for main background loop converting float to uint8_t array
