@@ -93,20 +93,7 @@ class PsocProtocol(asyncio.Protocol):
         self.data = bytearray()
         self.lines = []
 
-        
-    
-    def data_received(self, data):
-        """
-        Process the received data packet.
-
-        Returns:
-            None
-        """      
-        self.data.extend(data)
-        buffer_len = len(self.data)
-        if buffer_len < 1 or buffer_len < self.data[1] + 3:
-            return
-
+    def process_data(self):
         opCode = self.data[0]
         dataLength = self.data[1]
 
@@ -167,6 +154,19 @@ class PsocProtocol(asyncio.Protocol):
         except struct.error as e:
             print(f"Unpack error: {e}.")
 
+    def data_received(self, data):
+        """
+        Process the received data packet.
+
+        Returns:
+            None
+        """
+        self.data.extend(data)
+        buffer_len = len(self.data)
+        if buffer_len < 1 or buffer_len < self.data[1] + 3:
+            return
+        self.process_data()
+        self.data = bytearray()
     
     def pause_reading(self):
         self.transport.pause_reading()
