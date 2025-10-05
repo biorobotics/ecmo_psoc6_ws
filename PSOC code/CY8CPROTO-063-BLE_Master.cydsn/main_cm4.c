@@ -294,14 +294,16 @@ int main(void) {
     /* Initialization of Crypto Driver */
 	// while (Cy_Crypto_Init(&cryptoConfig, &cryptoScratch) != CY_CRYPTO_SUCCESS) {
     //     txBuffer[0] = encryptionErrorCode;
-    //     UART_1_Transmit(txBuffer,1); 
+    //     txBuffer[1] = 40;
+    //     UART_1_Transmit(txBuffer,43);
     //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
     // }
 
 	/* Enable Crypto Hardware */
 	// while (Cy_Crypto_Enable() != CY_CRYPTO_SUCCESS) {
     //     txBuffer[0] = encryptionErrorCode;
-    //     UART_1_Transmit(txBuffer,1); 
+    //     txBuffer[1] = 40;
+    //     UART_1_Transmit(txBuffer,43);
     //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
     // }
 
@@ -311,7 +313,8 @@ int main(void) {
     /* Initializes the AES operation by setting key and key length */
 	// while (Cy_Crypto_Aes_Init((uint32_t*)AES_Key, CY_CRYPTO_KEY_AES_128, &cryptoAES) != CY_CRYPTO_SUCCESS) {
     //     txBuffer[0] = encryptionErrorCode;
-    //     UART_1_Transmit(txBuffer,1); 
+    //     txBuffer[1] = 40;
+    //     UART_1_Transmit(txBuffer,43);
     //     Cy_GPIO_Clr(GPIO_PRT6, 3u);   // drive low  -> LED ON
     // }
 
