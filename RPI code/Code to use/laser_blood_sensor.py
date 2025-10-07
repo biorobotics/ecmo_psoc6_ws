@@ -4,7 +4,7 @@ import asyncio
 import serial_asyncio
 from datetime import datetime, timezone, timedelta
 import numpy as np
-from questdb.ingress import Sender, TimestampNanos
+from questdb.ingress import Sender, TimestampNanos, IngressError
 
 # Constants and Configurations
 LOG_DIRECTORY = "/home/pas/Desktop/ecmo/log"
@@ -25,16 +25,20 @@ class OutputProtocol(asyncio.Protocol):
             if self.data is None:
                 self.data = b""
                 return
-        if self.data is not None:
-            self.data += data
-            loc = self.data.find(b'\r\n')
-            while loc >= 0:
-                line = self.data[:loc].decode('utf-8').split(',')
-                line[0] = datetime.now(timezone.utc)
-                line[1:] = [int(v) for v in line[1:]]
-                self.lines.append(line)
-                self.data = self.data[loc+2:]
+        try:
+            if self.data is not None:
+                self.data += data
                 loc = self.data.find(b'\r\n')
+                while loc >= 0:
+                    line = self.data[:loc].decode('utf-8').split(',')
+                    line[0] = datetime.now(timezone.utc)
+                    line[1:] = [int(v) for v in line[1:]]
+                    self.lines.append(line)
+                    self.data = self.data[loc+2:]
+                    loc = self.data.find(b'\r\n')
+        except Exception as e:
+            self.data = None
+            print(e)
 
     
     def pause_reading(self):
@@ -67,22 +71,38 @@ async def reader():
         await asyncio.sleep(1)
         filepath = generate_filename()
         if current_log_path != filepath:
+            print("Writing to" + filepath)
             if fileio is not None:
                 fileio.close()
-            fileio = open(filepath, 'w')
+            fileio = open(filepath, 'a+')
             current_log_path = filepath
-        with Sender.from_env() as sender:
-            for line in protocol.get_lines():
-                fileio.write(line[0].isoformat())
-                for val in line[1:]:
-                    fileio.write("," + str(val))
-                fileio.write("\n")
-                sender.row(
-                    "2025_08_28_sheep_laser_sensor",
-                    columns={"L680_1": line[1], "L850_1": line[2], "L680_2": line[3], "L850_2": line[4]},
-                    at=TimestampNanos.from_datetime(line[0]),
-                )
-            sender.flush()   
+        lines = protocol.get_lines()
+        sent = "Sent"
+        try:
+            with Sender.from_env() as sender:
+                for line in lines:
+                    sender.row(
+                        "2025_08_28_sheep_laser_sensor",
+                        columns={
+                            "L680_1": line[1],
+                            "L850_1": line[2],
+                            "L680_2": line[3],
+                            "L850_2": line[4],
+                        },
+                        at=TimestampNanos.from_datetime(line[0]),
+                    )
+                sender.flush()
+        except IngressError as e:
+            sent = str(e.code)
+
+        for line in lines:
+            # print(line[0].strftime("%M:%S.%f"), line[1:])
+            fileio.write(line[0].isoformat())
+            for val in line[1:]:
+                fileio.write("," + str(val))
+            fileio.write("," + sent)
+            fileio.write("\n")
+                 
         protocol.resume_reading()
     
     fileio.close()

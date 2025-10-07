@@ -342,14 +342,14 @@ def process_data():
                     value_1 = bytes2u16Int(int_bytes_1)
                     value_2 = bytes2u16Int(int_bytes_2)
 
-                    log_entry += f"{timestamp}: "
-                    log_entry += f"L680: {value_1:5d}, L850: {value_2:5d}"
-                elif data_element_index == 1:
-                    log_entry += f"SO2: {value:.6f}"
-                elif data_element_index == 2:
-                    log_entry += f"SO2_avg: {value:.6f}"
-                elif data_element_index == 3:
-                    log_entry += f"HBT: {value:.6f}"
+                    # log_entry += f"{timestamp}: "
+                    # log_entry += f"L680: {value_1:5d}, L850: {value_2:5d}"
+                # elif data_element_index == 1:
+                #     log_entry += f"SO2: {value:.6f}"
+                # elif data_element_index == 2:
+                #     log_entry += f"SO2_avg: {value:.6f}"
+                # elif data_element_index == 3:
+                #     log_entry += f"HBT: {value:.6f}"
             else:
                 if data_element_index == 0:
                     log_entry += f"{timestamp}: "
@@ -363,10 +363,12 @@ def process_data():
 
             data_element_index = (data_element_index + 1) % 4
             if data_element_index == 0:
-                log_message(log_entry)
+                if i + 16 >= dataLength:# 
+                    log_message(log_entry)
                 log_entry = ""
             else:
-                log_entry += ", "
+                if i + 16 >= dataLength:# 
+                    log_entry += ", "
     else:
         print("CRC check failed.")
 
